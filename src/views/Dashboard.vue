@@ -1,28 +1,30 @@
 <template>
-  <div class="min-h-screen bg-gray-50 p-6">
+  <div class="min-h-screen bg-gray-50 p-4 sm:p-6">
     <div class="max-w-7xl mx-auto">
       <!-- Header -->
       <Card class="mb-6 shadow-md border border-gray-200">
         <template #content>
-          <div class="flex justify-between items-center">
-            <div>
-              <h1 class="text-4xl font-bold text-gray-900 mb-2">
+          <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+            <div class="flex-1">
+              <h1 class="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-2">
                 Dashboard
               </h1>
-              <p class="text-gray-600 text-lg">Gérez vos campagnes de prospection</p>
+              <p class="text-gray-600 text-base sm:text-lg">Gérez vos campagnes de prospection</p>
             </div>
-            <div class="flex gap-3">
+            <div class="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
               <Button
                 label="Techniques"
                 icon="pi pi-book"
                 severity="secondary"
                 outlined
                 @click="$router.push('/techniques')"
+                class="w-full sm:w-auto"
               />
               <Button
                 label="Nouvelle Campagne"
                 icon="pi pi-plus"
                 @click="$router.push('/campaign')"
+                class="w-full sm:w-auto"
               />
             </div>
           </div>
@@ -122,7 +124,7 @@
       <Dialog
         v-model:visible="showDialog"
         :header="selectedCampaign ? `Détails: ${selectedCampaign.company_name}` : ''"
-        :style="{ width: '800px' }"
+        :style="{ width: '90vw', maxWidth: '800px' }"
         :modal="true"
         :closable="true"
       >
