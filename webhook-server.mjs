@@ -1,13 +1,20 @@
 import express from "express";
+import path from "path";
+import { fileURLToPath } from "url";
+
 // Optionnel : si tu utilises réellement le SDK Retell plus tard
 // import { Retell } from "retell-sdk";
 
 const app = express();
 const PORT = process.env.PORT || 8080;
 
+// __dirname en mode ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 app.use(express.json());
 
-// Endpoint Webhook Retell
+// 1) Endpoint Webhook Retell
 app.post("/webhook", (req, res) => {
   const { event, call } = req.body || {};
 
@@ -29,8 +36,17 @@ app.post("/webhook", (req, res) => {
   res.status(204).send();
 });
 
-app.listen(PORT, () => {
-  console.log(`Retell webhook listening on http://localhost:${PORT}/webhook`);
+// 2) Servir le front Vite buildé (dossier dist)
+const distPath = path.join(__dirname, "dist");
+app.use(express.static(distPath));
+
+// 3) Fallback SPA : toutes les routes front renvoient index.html
+app.get("*", (_req, res) => {
+  res.sendFile(path.join(distPath, "index.html"));
 });
 
+app.listen(PORT, () => {
+  console.log(`Server listening on http://localhost:${PORT}`);
+  console.log(`Webhook endpoint available at http://localhost:${PORT}/webhook`);
+});
 

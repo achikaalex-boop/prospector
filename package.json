@@ -6,7 +6,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "webhook": "node webhook-server.mjs"
+    "webhook": "node webhook-server.mjs",
+    "start": "node webhook-server.mjs"
   },
   "dependencies": {
     "@primevue/themes": "^4.5.3",
