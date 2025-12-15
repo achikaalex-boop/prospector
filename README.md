@@ -89,13 +89,6 @@ Marie Martin,marie@example.com,0698765432,Tech Solutions
 - Row Level Security (RLS) activé sur toutes les tables
 - Les utilisateurs ne peuvent accéder qu'à leurs propres données
 
-## 📤 Intégration n8n
-
-L'application envoie les données de campagne via webhook n8n. Le payload contient :
-- Toutes les informations de configuration de la campagne
-- La liste des contacts à appeler
-- Les métadonnées utilisateur
-
 ## 🚧 Mode Bêta
 
 L'application est actuellement en mode bêta et évolue continuellement. Les fonctionnalités peuvent être ajoutées ou modifiées.
