@@ -513,7 +513,9 @@ const handleSubmit = async () => {
               // Variables spécifiques au contact
               customer_name: c.nom || agentVariables.contact_first_name,
               contact_company: c.entreprise || '',
-              contact_email: c.email || ''
+              contact_email: c.email || '',
+              // ID de campagne pour lier les résultats webhook à la campagne
+              campaign_id: campaign.id
             }
           }))
 
