@@ -199,8 +199,8 @@
                 v-model="formData.call_script_example"
                 placeholder="Collez ici votre script d'appel en suivant le template recommandé (ACCROCHE, DÉCOUVERTE, TRANSITION VALEUR, CLOSING)..."
                 rows="8"
-                class="w-full"
-              />
+                  class="w-full"
+                />
               <small class="text-gray-500 text-sm mt-1 block">
                 Optionnel. Si laissé vide, l'agent utilisera un script généré automatiquement à partir de vos variables.
               </small>
@@ -254,7 +254,8 @@
                   :disabled="loading"
                 />
                 <small class="text-gray-500 text-sm mt-1 block">
-                  Format CSV attendu : nom, email, téléphone, entreprise (optionnel)
+                  Format CSV attendu : nom, email, téléphone, entreprise (optionnel)<br>
+                  <span class="text-blue-600">ℹ️ Le préfixe "+" sera ajouté automatiquement aux numéros de téléphone si absent.</span>
                 </small>
               </div>
 
@@ -370,6 +371,27 @@ const addCommitteeMember = () => {
   }
 }
 
+// Fonction pour normaliser le numéro de téléphone au format E.164
+const normalizePhoneNumber = (phone) => {
+  if (!phone) return ''
+  
+  // Retirer tous les espaces, tirets, parenthèses, etc.
+  let cleaned = phone.replace(/[\s\-\(\)\.]/g, '')
+  
+  // Si le numéro commence déjà par +, le garder
+  if (cleaned.startsWith('+')) {
+    return cleaned
+  }
+  
+  // Si le numéro commence par 00 (format international), remplacer par +
+  if (cleaned.startsWith('00')) {
+    return '+' + cleaned.substring(2)
+  }
+  
+  // Sinon, ajouter simplement le + au début
+  return '+' + cleaned
+}
+
 const parseCSV = (text) => {
   const lines = text.split('\n').filter(line => line.trim())
   if (lines.length === 0) return []
@@ -387,7 +409,9 @@ const parseCSV = (text) => {
       } else if (header.includes('email') || header.includes('mail')) {
         contact.email = values[index] || ''
       } else if (header.includes('tel') || header.includes('phone') || header.includes('telephone')) {
-        contact.telephone = values[index] || ''
+        // Normaliser le numéro de téléphone pour ajouter le + si nécessaire
+        const rawPhone = values[index] || ''
+        contact.telephone = normalizePhoneNumber(rawPhone)
       } else if (header.includes('entreprise') || header.includes('company') || header.includes('societe')) {
         contact.entreprise = values[index] || ''
       }
