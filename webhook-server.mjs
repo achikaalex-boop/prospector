@@ -54,6 +54,19 @@ app.post("/webhook", async (req, res) => {
   }
 });
 
+// Endpoint pour recevoir les logs clients (envoyés depuis le front)
+app.post('/client-log', (req, res) => {
+  try {
+    const payload = req.body || {}
+    // Afficher les logs côté serveur (render.com / stdout)
+    console.log('CLIENT-LOG:', JSON.stringify(payload))
+  } catch (e) {
+    console.error('Erreur lors du traitement du client-log:', e)
+  }
+  // Répondre rapidement
+  res.status(204).send()
+})
+
 // Fonction pour sauvegarder les résultats d'appel dans Supabase
 async function saveCallResults(call) {
   if (!supabase || !call) {

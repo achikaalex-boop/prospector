@@ -26,6 +26,8 @@
         {{ success }}
       </Message>
 
+      <!-- Debug logs are sent to the server for Render.com; not shown to clients -->
+
       <form @submit.prevent="handleSubmit">
         <!-- Informations Entreprise -->
         <Card class="mb-6 shadow-md border border-gray-200">
@@ -331,6 +333,24 @@ const error = ref('')
 const success = ref('')
 const loading = ref(false)
 
+// Send diagnostic logs to server-side endpoint so they appear in Render.com logs.
+// Do NOT display these logs to clients in the UI.
+const sendServerLog = async (msg, meta = {}) => {
+  const payload = {
+    ts: new Date().toISOString(),
+    message: msg,
+    meta
+  }
+  try {
+    // fire-and-forget; the server will log the payload to stdout
+    await axios.post('/client-log', payload)
+  } catch (e) {
+    // keep client-side console for debugging during development only
+    try { console.log('sendServerLog error', e) } catch (e) {}
+  }
+  try { console.log(`${payload.ts} - ${payload.message}`) } catch (e) {}
+}
+
 const domainOptions = [
   'Immobilier',
   'Tech',
@@ -457,7 +477,9 @@ const handleSubmit = async () => {
   loading.value = true
 
   try {
+    sendServerLog(`Démarrage de la création de campagne, contacts chargés: ${contacts.value.length}`, { contacts_count: contacts.value.length })
     const { data: { user } } = await supabase.auth.getUser()
+    sendServerLog(`Résultat supabase.auth.getUser(): ${user ? user.id : 'aucun user'}`, { user: user ? user.id : null })
     if (!user) throw new Error('Utilisateur non authentifié')
 
     // Valeurs par défaut / normalisation pour les variables optionnelles
@@ -515,6 +537,7 @@ const handleSubmit = async () => {
       .single()
 
     if (dbError) throw dbError
+    sendServerLog(`Campagne insérée en base avec id: ${campaign.id}`, { campaign_id: campaign.id })
 
     // Appel direct à l'API Retell - Create Batch Call
     const retellApiKey = import.meta.env.VITE_RETELL_API_KEY
@@ -523,8 +546,11 @@ const handleSubmit = async () => {
 
     if (!retellApiKey || !retellFromNumber || !retellAgentId) {
       console.error('Configuration Retell manquante. Vérifiez VITE_RETELL_API_KEY, VITE_RETELL_FROM_NUMBER et VITE_RETELL_AGENT_ID.')
+      addDebugLog('Configuration Retell manquante: vérifier VITE_RETELL_API_KEY, VITE_RETELL_FROM_NUMBER, VITE_RETELL_AGENT_ID')
+      error.value = 'Configuration Retell manquante. Vérifiez les variables d\'environnement.'
     } else {
       try {
+        sendServerLog('Construction des tâches Retell à partir des contacts...', { contacts_count: contacts.value.length })
         const tasks = contacts.value
           .filter(c => c.telephone)
           .map(c => ({
@@ -545,6 +571,7 @@ const handleSubmit = async () => {
 
         if (tasks.length === 0) {
           console.warn('Aucun numéro de téléphone valide pour créer des tâches Retell.')
+          sendServerLog('Aucun numéro de téléphone valide trouvé dans les contacts; aucune tâche créée.', { contacts_count: contacts.value.length })
         } else {
           const batchBody = {
             name: `Campagne ${formData.company_name} - ${new Date().toISOString()}`,
@@ -552,15 +579,30 @@ const handleSubmit = async () => {
             tasks
           }
 
-          await axios.post('https://api.retellai.com/create-batch-call', batchBody, {
-            headers: {
-              Authorization: `Bearer ${retellApiKey}`,
-              'Content-Type': 'application/json'
+          try {
+            sendServerLog(`Envoi du batch vers Retell (tasks: ${tasks.length})`, { tasks_count: tasks.length })
+            // Ne pas envoyer tout le batchBody si cela contient des données sensibles (api key).
+            sendServerLog(`Batch body keys: ${Object.keys(batchBody)}`, { tasks_sample: tasks.slice(0,3) })
+            const resp = await axios.post('https://api.retellai.com/create-batch-call', batchBody, {
+              headers: {
+                Authorization: `Bearer ${retellApiKey}`,
+                'Content-Type': 'application/json'
+              }
+            })
+            sendServerLog(`Réponse Retell: status=${resp.status}`, { data: resp.data })
+            if (!resp || (resp.status < 200 || resp.status >= 300)) {
+              error.value = `Erreur API Retell: status ${resp ? resp.status : 'no response'}`
+              sendServerLog(`Erreur: réponse non 2xx reçue de Retell`, { status: resp ? resp.status : null })
             }
-          })
+          } catch (e) {
+            console.error('Erreur lors de la création du batch call Retell:', e)
+            sendServerLog(`Erreur lors de l'appel Retell: ${e && e.message ? e.message : JSON.stringify(e)}`)
+            error.value = `Erreur lors de l'envoi au service d'appel: ${e && e.message ? e.message : 'erreur inconnue'}`
+          }
         }
       } catch (retellError) {
         console.error('Erreur lors de la création du batch call Retell:', retellError)
+        sendServerLog(`Erreur inattendue dans bloc Retell: ${retellError && retellError.message ? retellError.message : JSON.stringify(retellError)}`)
       }
     }
 
