@@ -258,8 +258,7 @@
                   class="w-full"
                 />
                 <small class="text-gray-500 text-sm mt-1 block"
-                  >Sélectionnez le numéro utilisé pour émettre les appels (choix
-                  limité depuis le code).</small
+                  >Sélectionnez le numéro utilisé pour émettre les appels.</small
                 >
               </div>
               <div>
@@ -438,6 +437,7 @@ import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '../lib/supabase'
 import axios from 'axios'
+import Papa from 'papaparse'
 import Card from 'primevue/card'
 import InputText from 'primevue/inputtext'
 import Textarea from 'primevue/textarea'
@@ -583,63 +583,89 @@ const normalizePhoneNumber = (phone) => {
   return '+' + cleaned
 }
 
+// parseCSV using PapaParse for robust handling of quotes and line endings
 const parseCSV = (text) => {
-  const lines = text.split('\n').filter(line => line.trim())
-  if (lines.length === 0) return []
+  if (!text) return []
+  const parsed = Papa.parse(text, {
+    header: true,
+    skipEmptyLines: true,
+    transformHeader: h => (h || '').trim().toLowerCase()
+  })
 
-  const headers = lines[0].split(',').map(h => h.trim().toLowerCase())
   const contactsList = []
+  if (!parsed || !parsed.data) return contactsList
 
-  for (let i = 1; i < lines.length; i++) {
-    const values = lines[i].split(',').map(v => v.trim())
+  parsed.data.forEach(row => {
     const contact = {}
+    // row keys are normalized by transformHeader
+    for (const key in row) {
+      const raw = (row[key] || '').toString().trim()
+      if (!raw) continue
+      if (key.includes('nom') || key.includes('name')) contact.nom = raw
+      else if (key.includes('email') || key.includes('mail')) contact.email = raw
+      else if (key.includes('tel') || key.includes('phone') || key.includes('telephone')) contact.telephone = normalizePhoneNumber(raw)
+      else if (key.includes('entreprise') || key.includes('company') || key.includes('societe')) contact.entreprise = raw
+    }
 
-    headers.forEach((header, index) => {
-      if (header.includes('nom') || header.includes('name')) {
-        contact.nom = values[index] || ''
-      } else if (header.includes('email') || header.includes('mail')) {
-        contact.email = values[index] || ''
-      } else if (header.includes('tel') || header.includes('phone') || header.includes('telephone')) {
-        // Normaliser le numéro de téléphone pour ajouter le + si nécessaire
-        const rawPhone = values[index] || ''
-        contact.telephone = normalizePhoneNumber(rawPhone)
-      } else if (header.includes('entreprise') || header.includes('company') || header.includes('societe')) {
-        contact.entreprise = values[index] || ''
-      }
-    })
-
-    if (contact.telephone || contact.email) {
+    if ((contact.telephone && contact.telephone.trim()) || (contact.email && contact.email.trim())) {
       contactsList.push(contact)
     }
-  }
+  })
 
   return contactsList
 }
 
 const handleFileUpload = (event) => {
-  const file = event.files[0]
-  if (!file) return
+  // Accept both PrimeVue FileUpload `select` event and native input change events
+  const file = event && event.files && event.files[0]
+    ? event.files[0]
+    : (event && event.target && event.target.files && event.target.files[0])
+
+  if (!file) {
+    error.value = 'Aucun fichier sélectionné'
+    contacts.value = []
+    return
+  }
 
   const reader = new FileReader()
   reader.onload = (e) => {
     try {
-      contacts.value = parseCSV(e.target.result)
+      const text = e.target.result
+      const parsed = parseCSV(text)
+      contacts.value = parsed
       if (contacts.value.length === 0) {
         error.value = 'Aucun contact valide trouvé dans le fichier CSV'
       } else {
         error.value = ''
       }
     } catch (err) {
+      console.error('Erreur lecture CSV:', err)
       error.value = 'Erreur lors de la lecture du fichier CSV'
       contacts.value = []
     }
   }
-  reader.readAsText(file)
+  reader.readAsText(file, 'utf-8')
 }
 
 const handleSubmit = async () => {
-  if (contacts.value.length === 0) {
-    error.value = 'Veuillez charger un fichier de contacts'
+  // Validation des champs obligatoires marqués par "*" dans le formulaire
+  const requiredChecks = [
+    { key: 'company_name', label: "Nom de l'entreprise" },
+    { key: 'domain', label: "Secteur d'activité" },
+    { key: 'promesse_de_valeur', label: 'Promesse de valeur' },
+    { key: 'infos', label: 'Description entreprise / service' },
+    { key: 'agent_name', label: "Nom de l'agent" },
+    { key: 'objectifs', label: 'Objectifs de Prospection' }
+  ]
+
+  const missing = requiredChecks
+    .filter(r => !(formData[r.key] && String(formData[r.key]).trim().length > 0))
+    .map(r => r.label)
+
+  if (contacts.value.length === 0) missing.push('Fichier de contacts (CSV)')
+
+  if (missing.length > 0) {
+    error.value = `Veuillez renseigner les champs obligatoires : ${missing.join(', ')}`
     return
   }
 
