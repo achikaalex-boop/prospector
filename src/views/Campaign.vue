@@ -182,6 +182,40 @@
                   class="w-full"
                 />
               </div>
+
+              <div>
+                <label class="block mb-2 font-semibold text-gray-700">Pain point identifié</label>
+                <InputText
+                  v-model="formData.pain_point_identifie"
+                  placeholder="Ex : Perte de temps sur les tâches manuelles"
+                  class="w-full"
+                />
+              </div>
+
+              <div>
+                <label class="block mb-2 font-semibold text-gray-700">Numéro d'envoi</label>
+                <Dropdown
+                  v-model="formData.from_number"
+                  :options="fromNumberOptions"
+                  optionLabel="label"
+                  optionValue="value"
+                  placeholder="Sélectionnez un numéro d'envoi"
+                  class="w-full"
+                />
+                <small class="text-gray-500 text-sm mt-1 block">Sélectionnez le numéro utilisé pour émettre les appels (choix limité depuis le code).</small>
+              </div>
+              <div>
+                <label class="block mb-2 font-semibold text-gray-700">Fuseau horaire d'appel</label>
+                <Dropdown
+                  v-model="formData.timezone"
+                  :options="timezoneOptions"
+                  optionLabel="label"
+                  optionValue="value"
+                  placeholder="Sélectionnez un fuseau horaire"
+                  class="w-full"
+                />
+                <small class="text-gray-500 text-sm mt-1 block">Sélectionnez le fuseau horaire pour la fenêtre d'appel.</small>
+              </div>
             </div>
           </template>
         </Card>
@@ -342,14 +376,30 @@ const sendServerLog = async (msg, meta = {}) => {
     meta
   }
   try {
-    // fire-and-forget; the server will log the payload to stdout
-    await axios.post('/client-log', payload)
+    // Use absolute origin to avoid issues with relative paths when deployed
+    const url = `${window.location.origin}/client-log`
+    // Try once, with a short timeout; if it fails, retry once after 500ms
+    await axios.post(url, payload, { timeout: 3000 })
+  } catch (firstErr) {
+    try {
+      // second attempt (best-effort)
+      const url = `${window.location.origin}/client-log`
+      await axios.post(url, payload, { timeout: 3000 })
+    } catch (e) {
+      // keep client-side console for debugging during development only
+      try { console.log('sendServerLog error (both attempts)', e) } catch (e) {}
+    }
   } catch (e) {
-    // keep client-side console for debugging during development only
+    // unreachable path due to prior try-catch; kept for safety
     try { console.log('sendServerLog error', e) } catch (e) {}
   }
   try { console.log(`${payload.ts} - ${payload.message}`) } catch (e) {}
 }
+
+// Expose a manual test helper to trigger a test log from the browser console
+try {
+  window.__sendClientLog = (testMsg = 'client-log test ping') => sendServerLog(testMsg, { test: true })
+} catch (e) {}
 
 const domainOptions = [
   'Immobilier',
@@ -357,6 +407,36 @@ const domainOptions = [
   'Finance',
   'Conseil',
   'Autre'
+]
+
+const fromNumberOptions = [
+  { label: 'United States', value: '+14752906147' },
+  { label: 'Switzerland', value: '+41234567890' }
+]
+
+const timezoneOptions = [
+  { label: 'Africa/Porto-Novo', value: 'Africa/Porto-Novo' },
+  { label: 'Africa/Cairo', value: 'Africa/Cairo' },
+  { label: 'Africa/Johannesburg', value: 'Africa/Johannesburg' },
+  { label: 'America/Los_Angeles', value: 'America/Los_Angeles' },
+  { label: 'America/Denver', value: 'America/Denver' },
+  { label: 'America/Chicago', value: 'America/Chicago' },
+  { label: 'America/New_York', value: 'America/New_York' },
+  { label: 'America/Phoenix', value: 'America/Phoenix' },
+  { label: 'America/Anchorage', value: 'America/Anchorage' },
+  { label: 'America/Halifax', value: 'America/Halifax' },
+  { label: 'America/Sao_Paulo', value: 'America/Sao_Paulo' },
+  { label: 'Europe/London', value: 'Europe/London' },
+  { label: 'Europe/Paris', value: 'Europe/Paris' },
+  { label: 'Europe/Zurich', value: 'Europe/Zurich' },
+  { label: 'Europe/Berlin', value: 'Europe/Berlin' },
+  { label: 'Asia/Dubai', value: 'Asia/Dubai' },
+  { label: 'Asia/Kolkata', value: 'Asia/Kolkata' },
+  { label: 'Asia/Shanghai', value: 'Asia/Shanghai' },
+  { label: 'Asia/Tokyo', value: 'Asia/Tokyo' },
+  { label: 'Australia/Sydney', value: 'Australia/Sydney' },
+  { label: 'Pacific/Auckland', value: 'Pacific/Auckland' },
+  { label: 'UTC', value: 'UTC' }
 ]
 
 const objectifsOptions = [
@@ -382,6 +462,10 @@ const formData = reactive({
   processus_metier: '',
   key_capability: '',
   call_script_example: ''
+  ,
+  from_number: '+14752906147',
+  pain_point_identifie: '',
+  timezone: 'Africa/Porto-Novo'
 })
 
 const addCommitteeMember = () => {
@@ -539,71 +623,82 @@ const handleSubmit = async () => {
     if (dbError) throw dbError
     sendServerLog(`Campagne insérée en base avec id: ${campaign.id}`, { campaign_id: campaign.id })
 
-    // Appel direct à l'API Retell - Create Batch Call
-    const retellApiKey = import.meta.env.VITE_RETELL_API_KEY
-    const retellFromNumber = import.meta.env.VITE_RETELL_FROM_NUMBER
-    const retellAgentId = import.meta.env.VITE_RETELL_AGENT_ID
+    // Create batch via server-side endpoint to avoid exposing API keys to the client.
+    // Use the from_number selected in the form if present, otherwise fall back to env.
+    const retellFromNumber = formData.from_number || import.meta.env.VITE_RETELL_FROM_NUMBER || null
 
-    if (!retellApiKey || !retellFromNumber || !retellAgentId) {
-      console.error('Configuration Retell manquante. Vérifiez VITE_RETELL_API_KEY, VITE_RETELL_FROM_NUMBER et VITE_RETELL_AGENT_ID.')
-      addDebugLog('Configuration Retell manquante: vérifier VITE_RETELL_API_KEY, VITE_RETELL_FROM_NUMBER, VITE_RETELL_AGENT_ID')
-      error.value = 'Configuration Retell manquante. Vérifiez les variables d\'environnement.'
-    } else {
-      try {
-        sendServerLog('Construction des tâches Retell à partir des contacts...', { contacts_count: contacts.value.length })
-        const tasks = contacts.value
-          .filter(c => c.telephone)
-          .map(c => ({
+    try {
+      sendServerLog('Construction des tâches pour le serveur create-batch...', { contacts_count: contacts.value.length })
+      const tasks = contacts.value
+        .filter(c => c.telephone)
+        .map(c => {
+          const t = {
             to_number: c.telephone,
+            // We explicitly do NOT set override_agent_id here per requirements
             ignore_e164_validation: false,
-            override_agent_id: retellAgentId,
             retell_llm_dynamic_variables: {
-              // Variables de campagne communes
               ...agentVariables,
-              // Variables spécifiques au contact
+              // map referral_name -> referal_name to match API field name expectations
+              referal_name: agentVariables.referral_name || null,
+              pain_point_identifie: formData.pain_point_identifie || null,
               customer_name: c.nom || agentVariables.contact_first_name,
               contact_company: c.entreprise || '',
               contact_email: c.email || '',
-              // ID de campagne pour lier les résultats webhook à la campagne
               campaign_id: campaign.id
             }
-          }))
-
-        if (tasks.length === 0) {
-          console.warn('Aucun numéro de téléphone valide pour créer des tâches Retell.')
-          sendServerLog('Aucun numéro de téléphone valide trouvé dans les contacts; aucune tâche créée.', { contacts_count: contacts.value.length })
-        } else {
-          const batchBody = {
-            name: `Campagne ${formData.company_name} - ${new Date().toISOString()}`,
-            from_number: retellFromNumber,
-            tasks
           }
+          return t
+        })
 
-          try {
-            sendServerLog(`Envoi du batch vers Retell (tasks: ${tasks.length})`, { tasks_count: tasks.length })
-            // Ne pas envoyer tout le batchBody si cela contient des données sensibles (api key).
-            sendServerLog(`Batch body keys: ${Object.keys(batchBody)}`, { tasks_sample: tasks.slice(0,3) })
-            const resp = await axios.post('https://api.retellai.com/create-batch-call', batchBody, {
-              headers: {
-                Authorization: `Bearer ${retellApiKey}`,
-                'Content-Type': 'application/json'
-              }
-            })
-            sendServerLog(`Réponse Retell: status=${resp.status}`, { data: resp.data })
-            if (!resp || (resp.status < 200 || resp.status >= 300)) {
-              error.value = `Erreur API Retell: status ${resp ? resp.status : 'no response'}`
-              sendServerLog(`Erreur: réponse non 2xx reçue de Retell`, { status: resp ? resp.status : null })
-            }
-          } catch (e) {
-            console.error('Erreur lors de la création du batch call Retell:', e)
-            sendServerLog(`Erreur lors de l'appel Retell: ${e && e.message ? e.message : JSON.stringify(e)}`)
-            error.value = `Erreur lors de l'envoi au service d'appel: ${e && e.message ? e.message : 'erreur inconnue'}`
+      if (tasks.length === 0) {
+        console.warn('Aucun numéro de téléphone valide pour créer des tâches Retell.')
+        sendServerLog('Aucun numéro de téléphone valide trouvé dans les contacts; aucune tâche créée.', { contacts_count: contacts.value.length })
+      } else {
+        const batchBody = {
+          name: `Campagne ${formData.company_name} - ${new Date().toISOString()}`,
+          from_number: retellFromNumber,
+          tasks,
+          send_now: true,
+          trigger_timestamp: Date.now(),
+          reserved_concurrency: 1,
+          call_time_window: {
+            windows: [{ start: 0, end: 1440 }],
+            timezone: formData.timezone || 'Africa/Porto-Novo'
           }
         }
-      } catch (retellError) {
-        console.error('Erreur lors de la création du batch call Retell:', retellError)
-        sendServerLog(`Erreur inattendue dans bloc Retell: ${retellError && retellError.message ? retellError.message : JSON.stringify(retellError)}`)
+
+        try {
+          const url = `${window.location.origin}/create-batch`
+          sendServerLog(`Envoi du batch au serveur: ${url}`, { tasks_count: tasks.length })
+          sendServerLog(`Batch body keys: ${Object.keys(batchBody)}`, { tasks_sample: tasks.slice(0,3) })
+          const resp = await axios.post(url, batchBody, { timeout: 20000 })
+          sendServerLog(`Réponse serveur create-batch: status=${resp.status}`, { data: resp.data })
+
+          // If server returned tasks_url (proxying Retell), fetch it to show per-task statuses
+          const batchInfo = resp.data || {}
+          if (batchInfo.tasks_url) {
+            try {
+              const tasksResp = await axios.get(batchInfo.tasks_url, { timeout: 10000 })
+              const tasksData = typeof tasksResp.data === 'string' ? JSON.parse(tasksResp.data) : tasksResp.data
+              sendServerLog('Tasks file fetched after server create-batch', { sample: (tasksData || []).slice(0,5) })
+            } catch (e) {
+              sendServerLog('Could not fetch tasks file after server create-batch', { error: e && e.message ? e.message : JSON.stringify(e) })
+            }
+          }
+
+          if (!resp || (resp.status < 200 || resp.status >= 300)) {
+            error.value = `Erreur serveur create-batch: status ${resp ? resp.status : 'no response'}`
+            sendServerLog(`Erreur: réponse non 2xx reçue du serveur create-batch`, { status: resp ? resp.status : null })
+          }
+        } catch (e) {
+          console.error('Erreur lors de l'envoi au serveur create-batch:', e)
+          sendServerLog(`Erreur lors de l'appel serveur create-batch: ${e && e.message ? e.message : JSON.stringify(e)}`)
+          error.value = `Erreur lors de l'envoi au service d'appel: ${e && e.message ? e.message : 'erreur inconnue'}`
+        }
       }
+    } catch (err) {
+      console.error('Erreur lors de la construction du batch pour le serveur:', err)
+      sendServerLog(`Erreur inattendue lors de la construction du batch: ${err && err.message ? err.message : JSON.stringify(err)}`)
     }
 
     success.value = `Campagne créée avec succès ! ${contacts.value.length} contacts seront prospectés.`

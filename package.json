@@ -7,7 +7,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "webhook": "node webhook-server.mjs",
-    "start": "node webhook-server.mjs"
+    "start": "node webhook-server.mjs",
+    "test:retell-batch": "node scripts/test-retell-batch.js"
   },
   "dependencies": {
     "@primevue/themes": "^4.5.3",

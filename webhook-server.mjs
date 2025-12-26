@@ -2,6 +2,7 @@ import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
 import { createClient } from "@supabase/supabase-js";
+import axios from 'axios'
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -54,16 +55,96 @@ app.post("/webhook", async (req, res) => {
   }
 });
 
+// Server-side proxy endpoint to create a batch call on Retell
+// Exportable handler for create-batch to allow in-process testing
+export async function handleCreateBatch(req, res) {
+  const payload = req.body || {}
+
+  // Basic validation
+  if (!payload.from_number || !Array.isArray(payload.tasks) || payload.tasks.length === 0) {
+    console.warn('Invalid /create-batch payload received:', {
+      from_number: !!payload.from_number,
+      tasks_count: Array.isArray(payload.tasks) ? payload.tasks.length : 0
+    })
+    return res.status(400).json({ error: 'Missing required fields: from_number and non-empty tasks' })
+  }
+
+  const retellKey = process.env.RETELL_API_KEY || process.env.VITE_RETELL_API_KEY
+// Wire the exported handler into the app for normal operation
+  if (!retellKey) {
+    console.error('RETELL_API_KEY is not configured on the server')
+    return res.status(500).json({ error: 'Server misconfiguration: RETELL_API_KEY not set' })
+  }
+
+  // Log a sanitized summary of the request for debugging (no sensitive data)
+  try {
+    const taskPreview = payload.tasks.slice(0, 5).map(t => ({ to: t.to_number }))
+    console.log(`Forwarding batch to Retell: name=${payload.name || '<unnamed>'} tasks=${payload.tasks.length} send_now=${payload.send_now || false} preview=${JSON.stringify(taskPreview)}`)
+  } catch (e) {
+    console.log('Forwarding batch (could not build preview)')
+  }
+
+  // Apply server-side defaults if missing
+  if (!payload.from_number && (process.env.RETELL_FROM_NUMBER || process.env.VITE_RETELL_FROM_NUMBER)) {
+    payload.from_number = process.env.VITE_RETELL_FROM_NUMBER
+    console.log('Applied server default from_number')
+  }
+  // Fill missing override_agent_id from server env if present
+  // Note: we intentionally do NOT inject override_agent_id automatically.
+  // The client should provide task-level overrides when necessary. For security
+  // reasons we avoid forcing an agent override here.
+  // Default send_now to true if not set
+  if (typeof payload.send_now === 'undefined') payload.send_now = true
+
+  // Forward request to Retell API
+  try {
+    const resp = await axios.post(process.env.RETELL_API_URL || 'https://api.retellai.com/create-batch-call', payload, {
+      headers: {
+        Authorization: `Bearer ${retellKey}`,
+        'Content-Type': 'application/json'
+      },
+      timeout: 20000
+    })
+
+    // Log the response summary
+    console.log('Retell responded:', { status: resp.status, batch_call_id: resp.data?.batch_call_id, tasks_url: resp.data?.tasks_url })
+
+    // Pass through the Retell response body and status
+    return res.status(resp.status).json(resp.data)
+  } catch (err) {
+    console.error('Error calling Retell create-batch-call:', err?.response?.status, err?.response?.data || err.message)
+    const status = err?.response?.status || 500
+    const data = err?.response?.data || { error: err.message }
+    return res.status(status).json(data)
+  }
+}
+
 // Endpoint pour recevoir les logs clients (envoyés depuis le front)
 app.post('/client-log', (req, res) => {
   try {
     const payload = req.body || {}
     // Afficher les logs côté serveur (render.com / stdout)
-    console.log('CLIENT-LOG:', JSON.stringify(payload))
+    const remoteIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress
+    const ts = new Date().toISOString()
+    // Log a short summary to avoid huge bodies flooding the logs
+    const short = {
+      ts,
+      ip: remoteIp,
+      message: payload.message || null,
+      meta: payload.meta || null
+    }
+    console.log('CLIENT-LOG:', JSON.stringify(short))
   } catch (e) {
     console.error('Erreur lors du traitement du client-log:', e)
   }
   // Répondre rapidement
+  res.status(204).send()
+})
+
+// Simple ping endpoint to verify the server is reachable and logs are visible
+app.get('/client-log-ping', (_req, res) => {
+  const ts = new Date().toISOString()
+  console.log(`CLIENT-LOG-PING: received at ${ts}`)
   res.status(204).send()
 })
 
