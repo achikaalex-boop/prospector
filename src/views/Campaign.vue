@@ -8,9 +8,16 @@
             Nouvelle Campagne de Prospection
           </h1>
           <Message severity="info" :closable="false" class="mb-0">
-            Configurez votre agent vocal AI avec les informations de votre entreprise et les objectifs de prospection.
-            L'agent maîtrise les techniques avancées : <strong>Cold Call 2.0</strong>, <strong>SPIN Selling</strong>, <strong>NEPQ</strong>, <strong>BANT</strong>, <strong>Feel-Felt-Found</strong>, <strong>S.A.F.E.</strong>
-            <router-link to="/techniques" class="ml-2 text-gray-900 font-semibold underline">
+            Configurez votre agent vocal AI avec les informations de votre
+            entreprise et les objectifs de prospection. L'agent maîtrise les
+            techniques avancées : <strong>Cold Call 2.0</strong>,
+            <strong>SPIN Selling</strong>, <strong>NEPQ</strong>,
+            <strong>BANT</strong>, <strong>Feel-Felt-Found</strong>,
+            <strong>S.A.F.E.</strong>
+            <router-link
+              to="/techniques"
+              class="ml-2 text-gray-900 font-semibold underline"
+            >
               En savoir plus sur ces techniques
             </router-link>
           </Message>
@@ -18,11 +25,23 @@
       </Card>
 
       <!-- Messages -->
-      <Message v-if="error" severity="error" :closable="true" @close="error = ''" class="mb-6">
+      <Message
+        v-if="error"
+        severity="error"
+        :closable="true"
+        @close="error = ''"
+        class="mb-6"
+      >
         {{ error }}
       </Message>
-      
-      <Message v-if="success" severity="success" :closable="true" @close="success = ''" class="mb-6">
+
+      <Message
+        v-if="success"
+        severity="success"
+        :closable="true"
+        @close="success = ''"
+        class="mb-6"
+      >
         {{ success }}
       </Message>
 
@@ -34,13 +53,17 @@
           <template #title>
             <div class="flex items-center gap-2">
               <i class="pi pi-building text-gray-700"></i>
-              <span class="text-gray-900 font-semibold">Informations Entreprise</span>
+              <span class="text-gray-900 font-semibold"
+                >Informations Entreprise</span
+              >
             </div>
           </template>
           <template #content>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div class="md:col-span-2">
-                <label class="block mb-2 font-semibold text-gray-700">Nom de l'entreprise *</label>
+                <label class="block mb-2 font-semibold text-gray-700"
+                  >Nom de l'entreprise *</label
+                >
                 <InputText
                   v-model="formData.company_name"
                   placeholder="Votre Entreprise"
@@ -50,7 +73,9 @@
               </div>
 
               <div>
-                <label class="block mb-2 font-semibold text-gray-700">Secteur d'activité *</label>
+                <label class="block mb-2 font-semibold text-gray-700"
+                  >Secteur d'activité *</label
+                >
                 <Dropdown
                   v-model="formData.domain"
                   :options="domainOptions"
@@ -59,12 +84,15 @@
                   required
                 />
                 <small class="text-gray-500 text-sm mt-1 block">
-                  Options disponibles : Immobilier, Tech, Finance, Conseil, Autre
+                  Options disponibles : Immobilier, Tech, Finance, Conseil,
+                  Autre
                 </small>
               </div>
 
               <div>
-                <label class="block mb-2 font-semibold text-gray-700">Promesse de valeur (bénéfice principal) *</label>
+                <label class="block mb-2 font-semibold text-gray-700"
+                  >Promesse de valeur (bénéfice principal) *</label
+                >
                 <InputText
                   v-model="formData.promesse_de_valeur"
                   placeholder="Bénéfice principal en une phrase"
@@ -74,7 +102,9 @@
               </div>
 
               <div class="md:col-span-2">
-                <label class="block mb-2 font-semibold text-gray-700">Description entreprise / service *</label>
+                <label class="block mb-2 font-semibold text-gray-700"
+                  >Description entreprise / service *</label
+                >
                 <Textarea
                   v-model="formData.infos"
                   placeholder="Décrivez votre entreprise, vos services, vos produits (2-3 phrases max)..."
@@ -92,13 +122,17 @@
           <template #title>
             <div class="flex items-center gap-2">
               <i class="pi pi-user text-gray-700"></i>
-              <span class="text-gray-900 font-semibold">Configuration Agent</span>
+              <span class="text-gray-900 font-semibold"
+                >Configuration Agent</span
+              >
             </div>
           </template>
           <template #content>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label class="block mb-2 font-semibold text-gray-700">Nom de l'agent *</label>
+                <label class="block mb-2 font-semibold text-gray-700"
+                  >Nom de l'agent *</label
+                >
                 <InputText
                   v-model="formData.agent_name"
                   placeholder="Julie"
@@ -108,7 +142,9 @@
               </div>
 
               <div>
-                <label class="block mb-2 font-semibold text-gray-700">Seuil de confiance (0.0 - 1.0)</label>
+                <label class="block mb-2 font-semibold text-gray-700"
+                  >Seuil de confiance (0.0 - 1.0)</label
+                >
                 <InputNumber
                   v-model="formData.confidence_threshold"
                   :min="0"
@@ -119,7 +155,9 @@
                   placeholder="0.7"
                   class="w-full"
                 />
-                <small class="text-gray-500 text-sm mt-1 block">Plus élevé = plus sélectif dans les réponses</small>
+                <small class="text-gray-500 text-sm mt-1 block"
+                  >Plus élevé = plus sélectif dans les réponses</small
+                >
               </div>
             </div>
           </template>
@@ -130,25 +168,32 @@
           <template #title>
             <div class="flex items-center gap-2">
               <i class="pi pi-comments text-gray-700"></i>
-              <span class="text-gray-900 font-semibold">Variables Conversationnelles (optionnel)</span>
+              <span class="text-gray-900 font-semibold"
+                >Variables Conversationnelles (optionnel)</span
+              >
             </div>
           </template>
           <template #content>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label class="block mb-2 font-semibold text-gray-700">Prénom du prospect</label>
+                <label class="block mb-2 font-semibold text-gray-700"
+                  >Prénom du prospect</label
+                >
                 <InputText
                   v-model="formData.contact_first_name"
                   placeholder="Défaut : Monsieur / Madame"
                   class="w-full"
                 />
                 <small class="text-gray-500 text-sm mt-1 block">
-                  Laissez vide pour utiliser &quot;Monsieur/Madame&quot; automatiquement.
+                  Laissez vide pour utiliser &quot;Monsieur/Madame&quot;
+                  automatiquement.
                 </small>
               </div>
 
               <div>
-                <label class="block mb-2 font-semibold text-gray-700">Nom du référent (warm calling)</label>
+                <label class="block mb-2 font-semibold text-gray-700"
+                  >Nom du référent (warm calling)</label
+                >
                 <InputText
                   v-model="formData.referral_name"
                   placeholder="Nom du référent (optionnel)"
@@ -157,7 +202,9 @@
               </div>
 
               <div>
-                <label class="block mb-2 font-semibold text-gray-700">Nom du décisionnaire</label>
+                <label class="block mb-2 font-semibold text-gray-700"
+                  >Nom du décisionnaire</label
+                >
                 <InputText
                   v-model="formData.decision_maker_name"
                   placeholder="Nom du décisionnaire (si connu)"
@@ -166,7 +213,9 @@
               </div>
 
               <div>
-                <label class="block mb-2 font-semibold text-gray-700">Processus métier ciblé</label>
+                <label class="block mb-2 font-semibold text-gray-700"
+                  >Processus métier ciblé</label
+                >
                 <InputText
                   v-model="formData.processus_metier"
                   placeholder="Ex : la gestion locative, le recrutement..."
@@ -175,7 +224,9 @@
               </div>
 
               <div>
-                <label class="block mb-2 font-semibold text-gray-700">Capacité clé à qualifier</label>
+                <label class="block mb-2 font-semibold text-gray-700"
+                  >Capacité clé à qualifier</label
+                >
                 <InputText
                   v-model="formData.key_capability"
                   placeholder="Ex : automatisation, conformité RGPD..."
@@ -184,7 +235,9 @@
               </div>
 
               <div>
-                <label class="block mb-2 font-semibold text-gray-700">Pain point identifié</label>
+                <label class="block mb-2 font-semibold text-gray-700"
+                  >Pain point identifié</label
+                >
                 <InputText
                   v-model="formData.pain_point_identifie"
                   placeholder="Ex : Perte de temps sur les tâches manuelles"
@@ -193,7 +246,9 @@
               </div>
 
               <div>
-                <label class="block mb-2 font-semibold text-gray-700">Numéro d'envoi</label>
+                <label class="block mb-2 font-semibold text-gray-700"
+                  >Numéro d'envoi</label
+                >
                 <Dropdown
                   v-model="formData.from_number"
                   :options="fromNumberOptions"
@@ -202,10 +257,15 @@
                   placeholder="Sélectionnez un numéro d'envoi"
                   class="w-full"
                 />
-                <small class="text-gray-500 text-sm mt-1 block">Sélectionnez le numéro utilisé pour émettre les appels (choix limité depuis le code).</small>
+                <small class="text-gray-500 text-sm mt-1 block"
+                  >Sélectionnez le numéro utilisé pour émettre les appels (choix
+                  limité depuis le code).</small
+                >
               </div>
               <div>
-                <label class="block mb-2 font-semibold text-gray-700">Fuseau horaire d'appel</label>
+                <label class="block mb-2 font-semibold text-gray-700"
+                  >Fuseau horaire d'appel</label
+                >
                 <Dropdown
                   v-model="formData.timezone"
                   :options="timezoneOptions"
@@ -214,7 +274,10 @@
                   placeholder="Sélectionnez un fuseau horaire"
                   class="w-full"
                 />
-                <small class="text-gray-500 text-sm mt-1 block">Sélectionnez le fuseau horaire pour la fenêtre d'appel.</small>
+                <small class="text-gray-500 text-sm mt-1 block"
+                  >Sélectionnez le fuseau horaire pour la fenêtre
+                  d'appel.</small
+                >
               </div>
             </div>
           </template>
@@ -225,20 +288,25 @@
           <template #title>
             <div class="flex items-center gap-2">
               <i class="pi pi-file-edit text-gray-700"></i>
-              <span class="text-gray-900 font-semibold">Script d'appel personnalisé (optionnel)</span>
+              <span class="text-gray-900 font-semibold"
+                >Script d'appel personnalisé (optionnel)</span
+              >
             </div>
           </template>
           <template #content>
             <div class="space-y-2">
-              <label class="block mb-2 font-semibold text-gray-700">Script d'exemple</label>
+              <label class="block mb-2 font-semibold text-gray-700"
+                >Script d'exemple</label
+              >
               <Textarea
                 v-model="formData.call_script_example"
                 placeholder="Collez ici votre script d'appel en suivant le template recommandé (ACCROCHE, DÉCOUVERTE, TRANSITION VALEUR, CLOSING)..."
                 rows="8"
-                  class="w-full"
-                />
+                class="w-full"
+              />
               <small class="text-gray-500 text-sm mt-1 block">
-                Optionnel. Si laissé vide, l'agent utilisera un script généré automatiquement à partir de vos variables.
+                Optionnel. Si laissé vide, l'agent utilisera un script généré
+                automatiquement à partir de vos variables.
               </small>
             </div>
           </template>
@@ -249,12 +317,16 @@
           <template #title>
             <div class="flex items-center gap-2">
               <i class="pi pi-bullseye text-gray-700"></i>
-              <span class="text-gray-900 font-semibold">Objectifs de Prospection</span>
+              <span class="text-gray-900 font-semibold"
+                >Objectifs de Prospection</span
+              >
             </div>
           </template>
           <template #content>
             <div>
-              <label class="block mb-2 font-semibold text-gray-700">Sélectionnez les objectifs *</label>
+              <label class="block mb-2 font-semibold text-gray-700"
+                >Sélectionnez les objectifs *</label
+              >
               <Dropdown
                 v-model="formData.objectifs"
                 :options="objectifsOptions"
@@ -273,13 +345,17 @@
           <template #title>
             <div class="flex items-center gap-2">
               <i class="pi pi-users text-gray-700"></i>
-              <span class="text-gray-900 font-semibold">Contacts à Appeler</span>
+              <span class="text-gray-900 font-semibold"
+                >Contacts à Appeler</span
+              >
             </div>
           </template>
           <template #content>
             <div class="space-y-4">
               <div>
-                <label class="block mb-2 font-semibold text-gray-700">Fichier de contacts (CSV) *</label>
+                <label class="block mb-2 font-semibold text-gray-700"
+                  >Fichier de contacts (CSV) *</label
+                >
                 <FileUpload
                   mode="basic"
                   accept=".csv"
@@ -290,13 +366,22 @@
                   :disabled="loading"
                 />
                 <small class="text-gray-500 text-sm mt-1 block">
-                  Format CSV attendu : nom, email, téléphone, entreprise (optionnel)<br>
-                  <span class="text-blue-600">ℹ️ Le préfixe "+" sera ajouté automatiquement aux numéros de téléphone si absent.</span>
+                  Format CSV attendu : nom, email, téléphone, entreprise
+                  (optionnel)<br />
+                  <span class="text-blue-600"
+                    >ℹ️ Le préfixe "+" sera ajouté automatiquement aux numéros
+                    de téléphone si absent.</span
+                  >
                 </small>
               </div>
 
-              <div v-if="contacts.length > 0" class="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                <h3 class="font-semibold text-gray-900 mb-3">Contacts chargés ({{ contacts.length }})</h3>
+              <div
+                v-if="contacts.length > 0"
+                class="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200"
+              >
+                <h3 class="font-semibold text-gray-900 mb-3">
+                  Contacts chargés ({{ contacts.length }})
+                </h3>
                 <DataTable
                   :value="contacts.slice(0, 10)"
                   :paginator="contacts.length > 10"
@@ -310,7 +395,10 @@
                   <Column field="telephone" header="Téléphone"></Column>
                   <Column field="entreprise" header="Entreprise"></Column>
                 </DataTable>
-                <p v-if="contacts.length > 10" class="text-sm text-gray-600 mt-2 text-center">
+                <p
+                  v-if="contacts.length > 10"
+                  class="text-sm text-gray-600 mt-2 text-center"
+                >
                   ... et {{ contacts.length - 10 }} autres contacts
                 </p>
               </div>
@@ -366,6 +454,7 @@ const contacts = ref([])
 const error = ref('')
 const success = ref('')
 const loading = ref(false)
+const committeeMember = ref('')
 
 // Send diagnostic logs to server-side endpoint so they appear in Render.com logs.
 // Do NOT display these logs to clients in the UI.
@@ -389,9 +478,6 @@ const sendServerLog = async (msg, meta = {}) => {
       // keep client-side console for debugging during development only
       try { console.log('sendServerLog error (both attempts)', e) } catch (e) {}
     }
-  } catch (e) {
-    // unreachable path due to prior try-catch; kept for safety
-    try { console.log('sendServerLog error', e) } catch (e) {}
   }
   try { console.log(`${payload.ts} - ${payload.message}`) } catch (e) {}
 }
@@ -463,6 +549,7 @@ const formData = reactive({
   key_capability: '',
   call_script_example: ''
   ,
+  decision_committee: [],
   from_number: '+14752906147',
   pain_point_identifie: '',
   timezone: 'Africa/Porto-Novo'
@@ -478,20 +565,20 @@ const addCommitteeMember = () => {
 // Fonction pour normaliser le numéro de téléphone au format E.164
 const normalizePhoneNumber = (phone) => {
   if (!phone) return ''
-  
+
   // Retirer tous les espaces, tirets, parenthèses, etc.
   let cleaned = phone.replace(/[\s\-\(\)\.]/g, '')
-  
+
   // Si le numéro commence déjà par +, le garder
   if (cleaned.startsWith('+')) {
     return cleaned
   }
-  
+
   // Si le numéro commence par 00 (format international), remplacer par +
   if (cleaned.startsWith('00')) {
     return '+' + cleaned.substring(2)
   }
-  
+
   // Sinon, ajouter simplement le + au début
   return '+' + cleaned
 }
@@ -506,7 +593,7 @@ const parseCSV = (text) => {
   for (let i = 1; i < lines.length; i++) {
     const values = lines[i].split(',').map(v => v.trim())
     const contact = {}
-    
+
     headers.forEach((header, index) => {
       if (header.includes('nom') || header.includes('name')) {
         contact.nom = values[index] || ''
@@ -606,8 +693,8 @@ const handleSubmit = async () => {
         company_name: formData.company_name,
         domain: formData.domain,
         value_proposition: formData.promesse_de_valeur,
-        confidence_threshold: typeof normalizedFormData.confidence_threshold === 'number' 
-          ? normalizedFormData.confidence_threshold 
+        confidence_threshold: typeof normalizedFormData.confidence_threshold === 'number'
+          ? normalizedFormData.confidence_threshold
           : parseFloat(normalizedFormData.confidence_threshold),
         agent_name: formData.agent_name,
         referral_name: formData.referral_name,
@@ -681,8 +768,8 @@ const handleSubmit = async () => {
               const tasksResp = await axios.get(batchInfo.tasks_url, { timeout: 10000 })
               const tasksData = typeof tasksResp.data === 'string' ? JSON.parse(tasksResp.data) : tasksResp.data
               sendServerLog('Tasks file fetched after server create-batch', { sample: (tasksData || []).slice(0,5) })
-            } catch (e) {
-              sendServerLog('Could not fetch tasks file after server create-batch', { error: e && e.message ? e.message : JSON.stringify(e) })
+            } catch (fetchErr) {
+              sendServerLog('Could not fetch tasks file after server create-batch', { error: fetchErr && fetchErr.message ? fetchErr.message : JSON.stringify(fetchErr) })
             }
           }
 
@@ -691,7 +778,7 @@ const handleSubmit = async () => {
             sendServerLog(`Erreur: réponse non 2xx reçue du serveur create-batch`, { status: resp ? resp.status : null })
           }
         } catch (e) {
-          console.error('Erreur lors de l'envoi au serveur create-batch:', e)
+          console.error('Erreur lors de l\'envoi au serveur create-batch:', e)
           sendServerLog(`Erreur lors de l'appel serveur create-batch: ${e && e.message ? e.message : JSON.stringify(e)}`)
           error.value = `Erreur lors de l'envoi au service d'appel: ${e && e.message ? e.message : 'erreur inconnue'}`
         }
@@ -702,7 +789,7 @@ const handleSubmit = async () => {
     }
 
     success.value = `Campagne créée avec succès ! ${contacts.value.length} contacts seront prospectés.`
-    
+
     setTimeout(() => {
       router.push('/')
     }, 2000)
@@ -714,5 +801,4 @@ const handleSubmit = async () => {
 }
 </script>
 
-<style scoped>
-</style>
+<style scoped></style>

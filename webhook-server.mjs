@@ -119,6 +119,9 @@ export async function handleCreateBatch(req, res) {
   }
 }
 
+// Expose create-batch endpoint so clients (and `scripts/test-create-batch.js`) can call it
+app.post('/create-batch', handleCreateBatch)
+
 // Endpoint pour recevoir les logs clients (envoyés depuis le front)
 app.post('/client-log', (req, res) => {
   try {
