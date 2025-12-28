@@ -13,12 +13,23 @@ const __dirname = path.dirname(__filename);
 
 app.use(express.json());
 
-// Client Supabase pour le webhook (utilise les mêmes variables d'env que le front)
-const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
-const supabase = supabaseUrl && supabaseKey 
+// Client Supabase pour le webhook (côté serveur)
+// Prioriser la clé `SERVICE_ROLE` (doit être définie dans les variables d'env de Render)
+const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
+const anonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+const supabaseKey = serviceRoleKey || anonKey;
+const supabase = supabaseUrl && supabaseKey
   ? createClient(supabaseUrl, supabaseKey)
   : null;
+
+if (supabase) {
+  if (serviceRoleKey) {
+    console.log('Supabase client: using SERVICE_ROLE key (server, RLS bypass)');
+  } else {
+    console.warn('Supabase client: using ANON key on server — RLS may block inserts. Set SUPABASE_SERVICE_ROLE_KEY in env.');
+  }
+}
 
 // 1) Endpoint Webhook Retell
 app.post("/webhook", async (req, res) => {
@@ -171,7 +182,7 @@ async function saveCallResults(call) {
       disconnection_reason,
       retell_llm_dynamic_variables = {},
       call_analysis = {}
-    } = call;
+    } = call || {};
 
     // Calculer la durée en secondes
     const callDuration = duration_ms ? Math.floor(duration_ms / 1000) : null;
@@ -204,6 +215,7 @@ async function saveCallResults(call) {
     // Insérer ou mettre à jour le résultat dans campaign_results
     const resultData = {
       campaign_id: campaignId,
+      call_id: call_id || null,
       contact_name: contactName,
       contact_email: contactEmail,
       contact_phone: to_number,
@@ -212,30 +224,44 @@ async function saveCallResults(call) {
       notes: notes,
       call_duration: finalDuration,
       confidence_score: call_analysis.call_successful ? 0.8 : 0.3,
+      raw_payload: call // store full payload (jsonb)
     };
 
     // Vérifier si un résultat existe déjà pour ce call_id (via contact_phone + campaign_id)
     // Si oui, on met à jour, sinon on insère
-    const { data: existingResult } = await supabase
-      .from("campaign_results")
-      .select("id")
-      .eq("contact_phone", to_number)
-      .eq("campaign_id", campaignId)
-      .single();
+    // Try to find an existing result by call_id first (if available), otherwise fallback to phone+campaign
+    let existingResult = null
+    if (call_id) {
+      const { data: byCall, error: byCallErr } = await supabase
+        .from('campaign_results')
+        .select('id')
+        .eq('call_id', call_id)
+        .single()
+      if (!byCallErr && byCall) existingResult = byCall
+    }
+    if (!existingResult) {
+      const { data: byPhone } = await supabase
+        .from('campaign_results')
+        .select('id')
+        .eq('contact_phone', to_number)
+        .eq('campaign_id', campaignId)
+        .single()
+      if (byPhone) existingResult = byPhone
+    }
 
     let data, error;
     if (existingResult) {
       // Mettre à jour le résultat existant
       ({ data, error } = await supabase
-        .from("campaign_results")
+        .from('campaign_results')
         .update(resultData)
-        .eq("id", existingResult.id)
+        .eq('id', existingResult.id)
         .select()
         .single());
     } else {
       // Insérer un nouveau résultat
       ({ data, error } = await supabase
-        .from("campaign_results")
+        .from('campaign_results')
         .insert([resultData])
         .select()
         .single());

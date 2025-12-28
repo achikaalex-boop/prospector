@@ -55,6 +55,8 @@ CREATE TABLE IF NOT EXISTS campaign_results (
   notes TEXT,
   call_duration INTEGER, -- Durée en secondes
   confidence_score DECIMAL(3, 2),
+  call_id TEXT,
+  raw_payload JSONB,
   
   -- Timestamps
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -69,6 +71,7 @@ CREATE INDEX IF NOT EXISTS idx_campaigns_status ON campaigns(status);
 CREATE INDEX IF NOT EXISTS idx_campaign_results_campaign_id ON campaign_results(campaign_id);
 CREATE INDEX IF NOT EXISTS idx_campaign_results_status ON campaign_results(status);
 CREATE INDEX IF NOT EXISTS idx_campaign_results_contact_phone ON campaign_results(contact_phone);
+CREATE INDEX IF NOT EXISTS idx_campaign_results_call_id ON campaign_results(call_id);
 
 -- ============================================
 -- FONCTION: Mise à jour automatique de updated_at

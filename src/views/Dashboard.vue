@@ -56,12 +56,30 @@
       </Card>
 
       <!-- Campaigns Grid -->
-      <div v-if="!loading && campaigns.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <Card
-          v-for="campaign in campaigns"
-          :key="campaign.id"
-          class="hover:shadow-xl transition-all duration-300 hover:-translate-y-2"
-        >
+      <div v-if="!loading && campaigns.length > 0">
+        <div class="flex justify-end mb-4">
+          <div class="flex gap-2">
+            <Button
+              :severity="viewMode === 'grid' ? 'primary' : 'secondary'"
+              label="Cartes"
+              icon="pi pi-th-large"
+              @click="viewMode = 'grid'"
+            />
+            <Button
+              :severity="viewMode === 'list' ? 'primary' : 'secondary'"
+              label="Liste"
+              icon="pi pi-list"
+              @click="viewMode = 'list'"
+            />
+          </div>
+        </div>
+
+        <div v-if="viewMode === 'grid'" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <Card
+            v-for="campaign in campaigns"
+            :key="campaign.id"
+            class="hover:shadow-xl transition-all duration-300 hover:-translate-y-2"
+          >
           <template #header>
             <div class="p-4 bg-gray-900 text-white rounded-t-lg">
               <div class="flex justify-between items-start">
@@ -117,7 +135,34 @@
               />
             </div>
           </template>
-        </Card>
+          </Card>
+        </div>
+
+        <div v-if="viewMode === 'list'">
+          <DataTable :value="campaigns" responsiveLayout="scroll">
+            <Column field="company_name" header="Entreprise"></Column>
+            <Column field="domain" header="Secteur"></Column>
+            <Column field="agent_name" header="Agent"></Column>
+            <Column field="contacts_count" header="Contacts"></Column>
+            <Column field="status" header="Statut">
+              <template #body="slotProps">
+                <Tag :value="getStatusLabel(slotProps.data.status)" :severity="getStatusSeverity(slotProps.data.status)" />
+              </template>
+            </Column>
+            <Column field="created_at" header="Créée le">
+              <template #body="slotProps">
+                {{ formatDate(slotProps.data.created_at) }}
+              </template>
+            </Column>
+            <Column header="Actions">
+              <template #body="slotProps">
+                <div class="flex gap-2">
+                  <Button label="Détails" icon="pi pi-eye" class="p-button-sm" @click="viewDetails(slotProps.data)" />
+                </div>
+              </template>
+            </Column>
+          </DataTable>
+        </div>
       </div>
 
       <!-- Dialog Details -->
@@ -172,8 +217,26 @@
                 </template>
               </Column>
               <Column field="notes" header="Notes"></Column>
+              <Column header="Raw">
+                <template #body="slotProps">
+                  <Button label="Voir" class="p-button-sm" @click="viewRawResult(slotProps.data)" />
+                </template>
+              </Column>
             </DataTable>
           </div>
+        </div>
+      </Dialog>
+
+      <!-- Raw Result Dialog -->
+      <Dialog v-model:visible="showResultDialog" header="Payload brut" :style="{ width: '90vw', maxWidth: '800px' }" :modal="true">
+        <div v-if="selectedResult">
+          <h4 class="font-semibold mb-2">Résumé</h4>
+          <p><strong>Contact:</strong> {{ selectedResult.contact_name || selectedResult.contact_phone }}</p>
+          <p><strong>Statut:</strong> {{ selectedResult.status }}</p>
+          <p><strong>Durée:</strong> {{ selectedResult.call_duration }}s</p>
+          <Divider />
+          <h4 class="font-semibold mb-2">Payload JSON</h4>
+          <pre class="whitespace-pre-wrap bg-gray-100 p-3 rounded text-sm overflow-auto" style="max-height:60vh">{{ prettyJson(selectedResult.raw_payload) }}</pre>
         </div>
       </Dialog>
     </div>
@@ -197,8 +260,11 @@ import Column from 'primevue/column'
 const campaigns = ref([])
 const selectedCampaign = ref(null)
 const showDialog = ref(false)
+const viewMode = ref('grid')
 const loading = ref(true)
 const error = ref('')
+const showResultDialog = ref(false)
+const selectedResult = ref(null)
 
 const loadCampaigns = async () => {
   try {
@@ -282,6 +348,11 @@ const viewDetails = async (campaign) => {
   }
 }
 
+const viewRawResult = (result) => {
+  selectedResult.value = result
+  showResultDialog.value = true
+}
+
 const stopCampaign = async (campaignId) => {
   if (!confirm('Êtes-vous sûr de vouloir arrêter cette campagne ?')) return
 
@@ -302,6 +373,14 @@ const stopCampaign = async (campaignId) => {
 onMounted(() => {
   loadCampaigns()
 })
+
+const prettyJson = (obj) => {
+  try {
+    return JSON.stringify(obj, null, 2)
+  } catch (e) {
+    return String(obj)
+  }
+}
 </script>
 
 <style scoped>
