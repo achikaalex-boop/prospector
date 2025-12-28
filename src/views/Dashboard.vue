@@ -210,13 +210,36 @@
               :rows="5"
               class="p-datatable-sm"
             >
-              <Column field="contact_name" header="Contact"></Column>
+              <Column field="call_id" header="Call ID">
+                <template #body="slotProps">
+                  {{ slotProps.data.call_id || slotProps.data.raw_payload?.call_id || '-' }}
+                </template>
+              </Column>
+              <Column field="to" header="Vers">
+                <template #body="slotProps">
+                  {{ slotProps.data.contact_phone || slotProps.data.raw_payload?.to_number || '-' }}
+                </template>
+              </Column>
+              <Column field="from" header="Depuis">
+                <template #body="slotProps">
+                  {{ slotProps.data.raw_payload?.from_number || '-' }}
+                </template>
+              </Column>
+              <Column field="start" header="Début">
+                <template #body="slotProps">
+                  {{ formatTimestampFromRaw(slotProps.data.raw_payload?.start_timestamp) }}
+                </template>
+              </Column>
               <Column field="status" header="Statut">
                 <template #body="slotProps">
                   <Tag :value="slotProps.data.status" :severity="getStatusSeverity(slotProps.data.status)" />
                 </template>
               </Column>
-              <Column field="notes" header="Notes"></Column>
+              <Column field="summary" header="Résumé">
+                <template #body="slotProps">
+                  {{ slotProps.data.raw_payload?.call_analysis?.call_summary || slotProps.data.notes || '-' }}
+                </template>
+              </Column>
               <Column header="Raw">
                 <template #body="slotProps">
                   <Button label="Voir" class="p-button-sm" @click="viewRawResult(slotProps.data)" />
@@ -327,6 +350,19 @@ const formatDate = (dateString) => {
     hour: '2-digit',
     minute: '2-digit'
   })
+}
+
+const formatTimestampFromRaw = (ts) => {
+  if (!ts) return 'N/A'
+  // Retell timestamps look like milliseconds since epoch
+  try {
+    const n = Number(ts)
+    if (Number.isNaN(n)) return String(ts)
+    const d = new Date(n)
+    return d.toLocaleString('fr-FR', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+  } catch (e) {
+    return String(ts)
+  }
 }
 
 const viewDetails = async (campaign) => {

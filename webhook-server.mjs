@@ -233,6 +233,34 @@ async function saveCallResults(call) {
       raw_payload: call // store full payload (jsonb)
     };
 
+    // If campaignId is missing, store the full payload in a fallback audit table
+    if (!campaignId) {
+      try {
+        const { data: auditData, error: auditErr } = await supabase
+          .from('call_webhooks')
+          .insert([{
+            call_id: call_id || null,
+            to_number: to_number || null,
+            from_number: from_number || null,
+            event_type: 'call_analyzed',
+            raw_payload: call
+          }])
+          .select()
+          .single();
+
+        if (auditErr) {
+          console.error('Error saving to call_webhooks audit table:', auditErr);
+        } else {
+          console.log('Saved webhook payload to call_webhooks (no campaign_id):', auditData.id);
+        }
+      } catch (e) {
+        console.error('Exception while saving to call_webhooks:', e);
+      }
+
+      // Do not attempt to insert into campaign_results without campaignId
+      return;
+    }
+
     // Vérifier si un résultat existe déjà pour ce call_id (via contact_phone + campaign_id)
     // Si oui, on met à jour, sinon on insère
     // Try to find an existing result by call_id first (if available), otherwise fallback to phone+campaign
@@ -277,6 +305,40 @@ async function saveCallResults(call) {
       console.error("Error saving call results:", error);
     } else {
       console.log("Call results saved successfully:", data.id);
+      try {
+        // After successfully saving a call result, attempt to auto-complete the campaign
+        if (campaignId) {
+          const { data: campaignRow, error: campaignErr } = await supabase
+            .from('campaigns')
+            .select('id, contacts_count, status')
+            .eq('id', campaignId)
+            .single();
+
+          if (!campaignErr && campaignRow) {
+            const { data: resultsCountData, count, error: countErr } = await supabase
+              .from('campaign_results')
+              .select('id', { count: 'exact', head: false })
+              .eq('campaign_id', campaignId);
+
+            const resultsCount = Array.isArray(resultsCountData) ? resultsCountData.length : 0;
+
+            const contactsCount = campaignRow.contacts_count || 0;
+
+            // If contacts_count is set and we've reached or exceeded it, mark completed
+            if (contactsCount > 0 && resultsCount >= contactsCount && campaignRow.status !== 'completed') {
+              const { error: updateErr } = await supabase
+                .from('campaigns')
+                .update({ status: 'completed' })
+                .eq('id', campaignId);
+
+              if (updateErr) console.error('Error auto-updating campaign status:', updateErr);
+              else console.log('Campaign auto-marked as completed:', campaignId);
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Error while attempting to auto-complete campaign:', e);
+      }
     }
   } catch (error) {
     console.error("Error in saveCallResults:", error);

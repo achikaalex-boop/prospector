@@ -175,3 +175,20 @@ CREATE POLICY "Users can update results of their campaigns"
 --    - decision_process (supprimé de l'UI)
 --    - next_action (non utilisé dans campaign_results)
 --    - appointment_date (non utilisé dans campaign_results)
+
+-- ============================================
+-- TABLE: call_webhooks (audit pour payloads non reliés)
+-- ============================================
+-- Stocke les payloads webhook bruts quand `campaign_id` est manquant
+CREATE TABLE IF NOT EXISTS call_webhooks (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  call_id TEXT,
+  to_number TEXT,
+  from_number TEXT,
+  event_type TEXT,
+  raw_payload JSONB,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_call_webhooks_call_id ON call_webhooks(call_id);
+CREATE INDEX IF NOT EXISTS idx_call_webhooks_to_number ON call_webhooks(to_number);
