@@ -29,6 +29,32 @@ const routes = [
     name: 'Techniques',
     component: () => import('../views/Techniques.vue')
   }
+  ,
+  {
+    path: '/topup',
+    name: 'TopUp',
+    component: () => import('../views/TopUp.vue'),
+    meta: { requiresAuth: true }
+  }
+  ,
+  {
+    path: '/pricing',
+    name: 'Pricing',
+    component: () => import('../views/Pricing.vue')
+  }
+  ,
+  {
+    path: '/admin/calls-audit',
+    name: 'AdminCallsAudit',
+    component: () => import('../views/Admin/CallsAudit.vue'),
+    meta: { requiresAuth: true }
+  }
+  ,
+  {
+    path: '/topup/complete',
+    name: 'TopUpComplete',
+    component: () => import('../views/TopUpComplete.vue')
+  }
 ]
 
 const router = createRouter({

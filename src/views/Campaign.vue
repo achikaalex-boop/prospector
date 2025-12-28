@@ -61,7 +61,14 @@
           <template #content>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div class="md:col-span-2">
-                <label class="block mb-2 font-semibold text-gray-700"
+            <div class="flex flex-col sm:flex-row justify-between gap-3">
+              <div class="flex items-center gap-3">
+                <label class="text-sm text-gray-600">Plan:</label>
+                <Dropdown v-model="selectedPlan" :options="plans.map(p => ({ label: p.name, value: p.slug }))" optionLabel="label" optionValue="value" class="w-48" />
+                <label class="text-sm text-gray-600">Durée moyenne estimée (s):</label>
+                <InputNumber v-model="estimatedAvgCallSeconds" :min="10" :step="10" class="w-28" />
+                <Button label="Calculer le coût" icon="pi pi-calculator" @click="calculateEstimate" />
+              </div>
                   >Nom de l'entreprise *</label
                 >
                 <InputText
@@ -82,6 +89,22 @@
                   placeholder="Sélectionnez un secteur"
                   class="w-full"
                   required
+        <div v-if="estimate" class="mt-4">
+          <Card class="shadow-sm border border-gray-200 mb-4">
+            <template #content>
+              <div class="flex items-center justify-between">
+                <div>
+                  <h4 class="font-semibold">Estimation du coût</h4>
+                  <p class="text-sm text-gray-600">Contacts: {{ estimate.contacts }}, Minutes estimées: {{ estimate.minutes }}</p>
+                </div>
+                <div class="text-right">
+                  <p class="text-lg font-bold">{{ (estimate.total_cents/100).toFixed(2) }} € (approx.)</p>
+                  <p class="text-xs text-gray-500">Prix/min: {{ (estimate.per_min_cents/100).toFixed(2) }} €</p>
+                </div>
+              </div>
+            </template>
+          </Card>
+        </div>
                 />
                 <small class="text-gray-500 text-sm mt-1 block">
                   Options disponibles : Immobilier, Tech, Finance, Conseil,
@@ -554,6 +577,40 @@ const formData = reactive({
   pain_point_identifie: '',
   timezone: 'Africa/Porto-Novo'
 })
+
+// Pricing estimator state
+const plans = ref([])
+const selectedPlan = ref('starter')
+const estimatedAvgCallSeconds = ref(60)
+const estimate = ref(null)
+
+const loadPlans = async () => {
+  try {
+    const resp = await axios.get('/api/plans')
+    plans.value = resp.data || []
+    if (plans.value.length > 0) selectedPlan.value = plans.value[0].slug
+  } catch (e) {
+    // ignore, server may not be configured during local dev
+  }
+}
+
+const calculateEstimate = async () => {
+  try {
+    const contactsCount = contacts.value.length || 0
+    const resp = await axios.post('/api/preview-cost', {
+      contacts_count: contactsCount,
+      estimated_avg_call_seconds: estimatedAvgCallSeconds.value,
+      plan_slug: selectedPlan.value
+    })
+    estimate.value = resp.data || null
+  } catch (e) {
+    estimate.value = null
+    console.error('Estimate error', e)
+  }
+}
+
+// Load plans immediately
+loadPlans()
 
 const addCommitteeMember = () => {
   if (committeeMember.value.trim()) {
