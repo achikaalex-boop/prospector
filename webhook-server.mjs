@@ -36,6 +36,12 @@ app.post("/webhook", async (req, res) => {
   const { event, call } = req.body || {};
 
   // Toujours répondre rapidement (204) pour ne pas faire timeout Retell
+  try {
+    const remoteIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    console.log(`WEBHOOK RECEIVED: event=${event || 'unknown'} call_id=${call?.call_id || 'n/a'} ip=${remoteIp} ts=${new Date().toISOString()}`);
+  } catch (e) {
+    console.log('WEBHOOK RECEIVED (logging failed)')
+  }
   res.status(204).send();
 
   // Traitement asynchrone après la réponse
