@@ -147,13 +147,13 @@ export default {
         const link = (order?.links || []).find(l => l.rel === 'approve')
         this.approvalLink = link ? link.href : null
         if (!this.approvalLink) {
-          alert('Impossible d\'obtenir le lien PayPal d\'approbation')
+          this.$toast.add({ severity: 'error', summary: 'Erreur', detail: "Impossible d'obtenir le lien PayPal d'approbation", life: 6000 })
         } else {
           this.showRedirectModal = true
         }
       } catch (e) {
         console.error('subscribe error', e)
-        alert('Erreur lors de la création de la souscription: ' + (e?.response?.data?.error || e.message || e))
+        this.$toast.add({ severity: 'error', summary: 'Erreur', detail: 'Erreur lors de la création de la souscription: ' + (e?.response?.data?.error || e.message || e), life: 8000 })
       } finally { this.isLoading = false }
     },
     openApprovalFromModal() {

@@ -24,26 +24,7 @@
         </template>
       </Card>
 
-      <!-- Messages -->
-      <Message
-        v-if="error"
-        severity="error"
-        :closable="true"
-        @close="error = ''"
-        class="mb-6"
-      >
-        {{ error }}
-      </Message>
-
-      <Message
-        v-if="success"
-        severity="success"
-        :closable="true"
-        @close="success = ''"
-        class="mb-6"
-      >
-        {{ success }}
-      </Message>
+      <!-- Notifications are shown via toasts (PrimeVue ToastService) -->
 
       <!-- Debug logs are sent to the server for Render.com; not shown to clients -->
 
@@ -437,6 +418,7 @@ import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '../lib/supabase'
 import axios from 'axios'
+import { useToast } from 'primevue/usetoast'
 import Papa from 'papaparse'
 import Card from 'primevue/card'
 import InputText from 'primevue/inputtext'
@@ -445,7 +427,7 @@ import InputNumber from 'primevue/inputnumber'
 import Dropdown from 'primevue/dropdown'
 import FileUpload from 'primevue/fileupload'
 import Button from 'primevue/button'
-import Message from 'primevue/message'
+// Message removed; toasts are used instead
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 
@@ -455,6 +437,7 @@ const error = ref('')
 const success = ref('')
 const loading = ref(false)
 const committeeMember = ref('')
+const toast = useToast()
 
 // Send diagnostic logs to server-side endpoint so they appear in Render.com logs.
 // Do NOT display these logs to clients in the UI.
@@ -699,7 +682,9 @@ const handleSubmit = async () => {
   if (contacts.value.length === 0) missing.push('Fichier de contacts (CSV)')
 
   if (missing.length > 0) {
-    error.value = `Veuillez renseigner les champs obligatoires : ${missing.join(', ')}`
+    const msg = `Veuillez renseigner les champs obligatoires : ${missing.join(', ')}`
+    error.value = msg
+    try { toast.add({ severity: 'warn', summary: 'Champs manquants', detail: msg, life: 6000 }) } catch (e) {}
     return
   }
 
@@ -734,26 +719,38 @@ const handleSubmit = async () => {
     try {
       const resp = await axios.post('/api/create-campaign', payload, { timeout: 30000 })
       if (resp.status === 201 || resp.status === 202) {
-        success.value = `Campagne créée avec succès ! ${contacts.value.length} contacts seront prospectés.`
+        const msg = `Campagne créée avec succès ! ${contacts.value.length} contacts seront prospectés.`
+        success.value = msg
+        try { toast.add({ severity: 'success', summary: 'Campagne créée', detail: msg, life: 6000 }) } catch (e) {}
         setTimeout(() => router.push('/'), 2000)
       } else {
-        error.value = `Erreur lors de la création de la campagne: ${resp.data && resp.data.error ? resp.data.error : 'erreur inconnue'}`
+        const msg = `Erreur lors de la création de la campagne: ${resp.data && resp.data.error ? resp.data.error : 'erreur inconnue'}`
+        error.value = msg
+        try { toast.add({ severity: 'error', summary: 'Erreur', detail: msg, life: 8000 }) } catch (e) {}
       }
     } catch (e) {
       if (e?.response?.status === 402) {
         const data = e.response.data || {}
-        error.value = data.error || 'Solde insuffisant. Veuillez recharger votre compte.'
+        const msg = data.error || 'Solde insuffisant. Veuillez recharger votre compte.'
+        error.value = msg
+        try { toast.add({ severity: 'warn', summary: 'Solde insuffisant', detail: msg, life: 8000 }) } catch (t) {}
       } else if (e?.response?.data && e.response.data.error) {
-        error.value = e.response.data.error
+        const msg = e.response.data.error
+        error.value = msg
+        try { toast.add({ severity: 'error', summary: 'Erreur', detail: msg, life: 8000 }) } catch (t) {}
       } else {
         console.error('Erreur lors de la création de la campagne:', e)
-        error.value = 'Erreur lors de la création de la campagne (serveur)'
+        const msg = 'Erreur lors de la création de la campagne (serveur)'
+        error.value = msg
+        try { toast.add({ severity: 'error', summary: 'Erreur serveur', detail: msg, life: 8000 }) } catch (t) {}
       }
     }
   } catch (err) {
     console.error('Erreur lors de la construction du batch pour le serveur:', err)
     sendServerLog(`Erreur inattendue lors de la construction du batch: ${err && err.message ? err.message : JSON.stringify(err)}`)
-    error.value = err.message || 'Erreur lors de la création de la campagne'
+    const msg = err.message || 'Erreur lors de la création de la campagne'
+    error.value = msg
+    try { toast.add({ severity: 'error', summary: 'Erreur', detail: msg, life: 8000 }) } catch (t) {}
   } finally {
     loading.value = false
   }
