@@ -11,7 +11,10 @@ const PORT = process.env.PORT || 8080;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-app.use(express.json());
+import crypto from 'crypto';
+
+// capture raw body for webhook HMAC verification
+app.use(express.json({ verify: (req, _res, buf) => { req.rawBody = buf } }));
 
 // --- Billing endpoints --------------------------------------------------
 // Get available plans
@@ -166,6 +169,13 @@ async function capturePayPalOrder(orderId) {
       'Content-Type': 'application/json'
     }
   });
+  return resp.data;
+}
+
+async function getPayPalOrder(orderId) {
+  const accessToken = await getPayPalAccessToken();
+  const url = `${PAYPAL_API_HOST}/v2/checkout/orders/${orderId}`;
+  const resp = await axios.get(url, { headers: { Authorization: `Bearer ${accessToken}` } });
   return resp.data;
 }
 
@@ -477,7 +487,42 @@ app.post('/api/paypal/capture', async (req, res) => {
   try {
     const { orderID, user_id, plan_slug } = req.body || {};
     if (!orderID) return res.status(400).json({ error: 'orderID required' });
-    const capture = await capturePayPalOrder(orderID);
+    // Attempt capture with short retry/backoff for transient errors
+    let lastErr = null
+    let capture = null
+    const maxAttempts = 3
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        capture = await capturePayPalOrder(orderID)
+        lastErr = null
+        break
+      } catch (e) {
+        lastErr = e
+        // If the error is ORDER_NOT_APPROVED, stop retrying and return approval link
+        const details = e?.response?.data?.details || []
+        const hasNotApproved = Array.isArray(details) && details.some(d => d.issue === 'ORDER_NOT_APPROVED')
+        if (hasNotApproved) {
+          // fetch order to extract approval link
+          try {
+            const order = await getPayPalOrder(orderID)
+            const link = (order?.links || []).find(l => l.rel === 'approve')
+            console.warn('PayPal capture attempted before approval', { orderID, debug_id: e?.response?.data?.debug_id })
+            return res.status(409).json({ error: 'ORDER_NOT_APPROVED', approval_link: link ? link.href : null, debug_id: e?.response?.data?.debug_id || null })
+          } catch (fetchErr) {
+            console.warn('Failed to fetch PayPal order for approval link', fetchErr)
+            return res.status(409).json({ error: 'ORDER_NOT_APPROVED', approval_link: null, debug_id: e?.response?.data?.debug_id || null })
+          }
+        }
+
+        // For other errors, wait and retry (exponential backoff)
+        if (attempt < maxAttempts) await new Promise(r => setTimeout(r, 500 * attempt))
+      }
+    }
+    if (lastErr && !capture) {
+      console.error('Failed to capture PayPal order after retries:', lastErr?.response?.data || lastErr?.message || lastErr)
+      const status = lastErr?.response?.status || 500
+      return res.status(status).json({ error: lastErr?.response?.data || lastErr?.message || 'capture_failed' })
+    }
 
     // Update supabase transaction if present (best-effort)
     try {
@@ -543,7 +588,7 @@ app.post('/api/paypal/capture', async (req, res) => {
 
     return res.json(capture);
   } catch (err) {
-    console.error('Error capturing PayPal order:', err?.response?.data || err.message || err);
+    console.error('Error capturing PayPal order (unexpected):', err?.response?.data || err.message || err);
     const status = err?.response?.status || 500;
     return res.status(status).json({ error: err?.response?.data || err.message });
   }
@@ -619,35 +664,50 @@ app.post('/api/paypal/webhook', async (req, res) => {
 app.post("/webhook", async (req, res) => {
   const { event, call } = req.body || {};
 
-  // Toujours répondre rapidement (204) pour ne pas faire timeout Retell
-  try {
-    const remoteIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-    console.log(`WEBHOOK RECEIVED: event=${event || 'unknown'} call_id=${call?.call_id || 'n/a'} ip=${remoteIp} ts=${new Date().toISOString()}`);
-  } catch (e) {
-    console.log('WEBHOOK RECEIVED (logging failed)')
-  }
+  // Always respond quickly
   res.status(204).send();
 
-  // Traitement asynchrone après la réponse
   try {
+    const remoteIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (!event) {
+      console.warn(`WEBHOOK RECEIVED with no event field. Ignoring. ip=${remoteIp} ts=${new Date().toISOString()}`)
+      return
+    }
+    console.log(`WEBHOOK RECEIVED: event=${event} call_id=${call?.call_id || 'n/a'} ip=${remoteIp} ts=${new Date().toISOString()}`);
+
+    // If a RETELL_WEBHOOK_SECRET is configured, verify HMAC signature (header: x-retell-signature or x-signature)
+    const secret = process.env.RETELL_WEBHOOK_SECRET || null
+    if (secret) {
+      try {
+        const signature = req.headers['x-retell-signature'] || req.headers['x-signature'] || req.headers['x-hub-signature']
+        if (!signature) {
+          console.warn('Missing webhook signature header; rejecting processing')
+          return
+        }
+        const h = crypto.createHmac('sha256', secret).update(req.rawBody || '').digest('hex')
+        // allow both hex and prefixed formats
+        if (!(signature === h || signature.endsWith(h))) {
+          console.warn('Webhook HMAC verification failed; ignoring payload')
+          return
+        }
+      } catch (e) {
+        console.warn('Webhook HMAC verification error; ignoring payload', e.message || e)
+        return
+      }
+    }
+
+    // Handle known events
     switch (event) {
       case "call_started":
         console.log("Call started event received", call?.call_id);
-        // Optionnel : mettre à jour le statut de la campagne en "running"
         break;
-
       case "call_ended":
         console.log("Call ended event received", call?.call_id);
-        // call_ended contient toutes les données SAUF call_analysis
-        // On attend call_analyzed pour avoir les données complètes
         break;
-
       case "call_analyzed":
         console.log("Call analyzed event received", call?.call_id);
-        // call_analyzed contient TOUTES les données, y compris call_analysis
         await saveCallResults(call);
         break;
-
       default:
         console.log("Received an unknown event:", event);
     }

@@ -9,7 +9,7 @@ export async function createOrder(amountCents, currency = 'USD', description = '
 export async function captureOrder(orderID, userId, planSlug = null) {
   const body = { orderID, user_id: userId }
   if (planSlug) body.plan_slug = planSlug
-  const resp = await axios.post('/api/paypal/capture', body);
+  const resp = await axios.post('/api/paypal/capture', body).catch(err => { throw err })
   return resp.data;
 }
 
