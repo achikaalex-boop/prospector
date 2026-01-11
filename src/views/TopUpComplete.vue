@@ -18,6 +18,7 @@ export default {
     try {
       const params = new URLSearchParams(window.location.search)
       const token = params.get('token') || params.get('orderID') || null
+      const plan_slug = params.get('plan_slug') || null
       if (!token) throw new Error('No token/order id in query')
 
       let user_id = null
@@ -26,7 +27,7 @@ export default {
         user_id = session?.user?.id || null
       } catch (e) {}
 
-      await captureOrder(token, user_id)
+      await captureOrder(token, user_id, plan_slug)
       this.success = true
     } catch (e) {
       console.error('TopUpComplete error', e)

@@ -214,6 +214,44 @@ app.post('/api/paypal/create-order', async (req, res) => {
   }
 });
 
+// Create a subscription purchase order (one-time charge for subscription activation)
+app.post('/api/subscribe', async (req, res) => {
+  try {
+    if (!PAYPAL_CLIENT_ID || !PAYPAL_SECRET) return res.status(500).json({ error: 'PayPal not configured on server' });
+    const { plan_slug, amount_cents, user_id } = req.body || {}
+    if (!plan_slug) return res.status(400).json({ error: 'plan_slug required' })
+    if (!amount_cents || Number(amount_cents) <= 0) return res.status(400).json({ error: 'amount_cents required and must be > 0' })
+
+    const frontendBase = process.env.FRONTEND_URL || process.env.VITE_APP_URL || `http://localhost:${process.env.PORT || 5173}`
+    const returnUrl = `${frontendBase}/topup/complete?plan_slug=${encodeURIComponent(plan_slug)}`
+    const cancelUrl = `${frontendBase}/pricing`
+
+    const order = await createPayPalOrder(Number(amount_cents), 'USD', `Subscription: ${plan_slug}`, returnUrl, cancelUrl)
+
+    // Insert a pending transaction record if possible (best-effort)
+    if (supabase) {
+      try {
+        await supabase.from('billing_transactions').insert([{
+          user_id: user_id || null,
+          order_id: order.id,
+          amount_cents: Number(amount_cents),
+          currency: 'USD',
+          status: 'pending',
+          meta: { plan_slug },
+          raw_response: order
+        }])
+      } catch (e) {
+        // ignore if table doesn't exist
+      }
+    }
+
+    return res.json(order)
+  } catch (e) {
+    console.error('Error in /api/subscribe:', e?.response?.data || e.message || e)
+    return res.status(500).json({ error: e?.message || 'internal' })
+  }
+})
+
 // Convenience top-up endpoint that accepts amount and current user and proxies to create-order
 app.post('/api/topup', async (req, res) => {
   try {
@@ -303,7 +341,7 @@ app.post('/api/admin/link-payload', async (req, res) => {
 // Capture an order after buyer approval
 app.post('/api/paypal/capture', async (req, res) => {
   try {
-    const { orderID, user_id } = req.body || {};
+    const { orderID, user_id, plan_slug } = req.body || {};
     if (!orderID) return res.status(400).json({ error: 'orderID required' });
     const capture = await capturePayPalOrder(orderID);
 
@@ -347,9 +385,26 @@ app.post('/api/paypal/capture', async (req, res) => {
             // ignore if table doesn't exist
           }
         }
+
+        // If this capture was for a subscription activation, update user_plans
+        if (plan_slug) {
+          try {
+            const startsAt = new Date().toISOString()
+            const expiresAt = new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString()
+            // upsert into user_plans: if row exists, update; else insert
+            const { data: existing } = await supabase.from('user_plans').select('*').eq('user_id', user_id).limit(1).single().catch(() => ({ data: null }))
+            if (existing) {
+              await supabase.from('user_plans').update({ plan_slug, started_at: startsAt, expires_at: expiresAt }).eq('id', existing.id)
+            } else {
+              await supabase.from('user_plans').insert([{ user_id, plan_slug, started_at: startsAt, expires_at: expiresAt }])
+            }
+          } catch (e) {
+            console.warn('Could not update user_plans after subscription capture:', e.message || e)
+          }
+        }
       }
     } catch (e) {
-      console.warn('Non-fatal: could not apply credit to user:', e.message || e);
+      console.warn('Non-fatal: could not apply credit to user or set plan:', e.message || e);
     }
 
     return res.json(capture);

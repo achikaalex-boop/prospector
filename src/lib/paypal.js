@@ -6,8 +6,10 @@ export async function createOrder(amountCents, currency = 'USD', description = '
   return resp.data;
 }
 
-export async function captureOrder(orderID, userId) {
-  const resp = await axios.post('/api/paypal/capture', { orderID, user_id: userId });
+export async function captureOrder(orderID, userId, planSlug = null) {
+  const body = { orderID, user_id: userId }
+  if (planSlug) body.plan_slug = planSlug
+  const resp = await axios.post('/api/paypal/capture', body);
   return resp.data;
 }
 

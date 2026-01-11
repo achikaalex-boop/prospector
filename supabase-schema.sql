@@ -192,3 +192,102 @@ CREATE TABLE IF NOT EXISTS call_webhooks (
 
 CREATE INDEX IF NOT EXISTS idx_call_webhooks_call_id ON call_webhooks(call_id);
 CREATE INDEX IF NOT EXISTS idx_call_webhooks_to_number ON call_webhooks(to_number);
+
+-- ============================================
+-- TABLE: billing_transactions
+-- ============================================
+-- Enregistre les transactions PayPal / paiements (pending, captured, failed)
+CREATE TABLE IF NOT EXISTS billing_transactions (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  order_id TEXT,
+  amount_cents INTEGER NOT NULL,
+  currency TEXT DEFAULT 'USD',
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','captured','failed','refunded')),
+  meta JSONB,
+  raw_response JSONB,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_billing_transactions_user_id ON billing_transactions(user_id);
+CREATE INDEX IF NOT EXISTS idx_billing_transactions_order_id ON billing_transactions(order_id);
+
+-- RLS: permettre aux utilisateurs de voir leurs propres transactions (lecture limitée)
+ALTER TABLE billing_transactions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can view their own billing transactions"
+  ON billing_transactions FOR SELECT
+  USING (user_id IS NULL OR user_id = auth.uid());
+
+CREATE POLICY "Server can insert billing_transactions"
+  ON billing_transactions FOR INSERT
+  WITH CHECK (true);
+
+CREATE TRIGGER update_billing_transactions_updated_at
+  BEFORE UPDATE ON billing_transactions
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- ============================================
+-- TABLE: user_plans
+-- ============================================
+-- Stocke l'abonnement actif d'un utilisateur
+CREATE TABLE IF NOT EXISTS user_plans (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  plan_slug TEXT NOT NULL,
+  per_min_cents INTEGER,
+  concurrency_limit INTEGER DEFAULT 20,
+  started_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  expires_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_plans_user_id ON user_plans(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_plans_plan_slug ON user_plans(plan_slug);
+
+ALTER TABLE user_plans ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users manage their own plan"
+  ON user_plans FOR ALL
+  USING (user_id = auth.uid())
+  WITH CHECK (user_id = auth.uid());
+
+CREATE TRIGGER update_user_plans_updated_at
+  BEFORE UPDATE ON user_plans
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- ============================================
+-- TABLE: user_credits
+-- ============================================
+-- Stocke les crédits achetés / accordés à un utilisateur (solde)
+CREATE TABLE IF NOT EXISTS user_credits (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  amount NUMERIC(10,2) NOT NULL,
+  currency TEXT DEFAULT 'USD',
+  source TEXT,
+  meta JSONB,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_credits_user_id ON user_credits(user_id);
+
+ALTER TABLE user_credits ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users view own credits"
+  ON user_credits FOR SELECT
+  USING (user_id = auth.uid());
+
+CREATE POLICY "Server can insert credits"
+  ON user_credits FOR INSERT
+  WITH CHECK (true);
+
+-- ============================================
+-- NOTES MIGRATIONS
+-- ============================================
+-- 1) Ces tables standardisent les noms utilisés dans le code :
+--    - `billing_transactions` : enregistrements liés à PayPal / top-ups
+--    - `user_plans` : abonnement actuel de l'utilisateur (plan_slug + dates)
+--    - `user_credits` : crédits monétaires (ex: USD) disponibles pour l'utilisateur
+-- 2) Si vous déployez sur Supabase existant, exécutez ce fichier dans l'éditeur SQL.
+-- 3) Vérifiez et ajustez les politiques RLS selon vos besoins (server doit utiliser SERVICE_ROLE key pour écrire).
+

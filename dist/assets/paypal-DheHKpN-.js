@@ -1,1 +1,0 @@
-import{a as p}from"./index-B9ygI19o.js";async function o(a,t="USD",r="Top-up"){return(await p.post("/api/topup",{amount_cents:a,currency:t,description:r})).data}async function n(a,t){return(await p.post("/api/paypal/capture",{orderID:a,user_id:t})).data}export{o as a,n as c};
