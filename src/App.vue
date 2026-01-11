@@ -21,14 +21,6 @@
               icon="pi pi-sign-out"
               severity="secondary"
               outlined
-              class="hidden sm:inline-flex"
-              @click="handleLogout"
-            />
-            <Button
-              icon="pi pi-sign-out"
-              severity="secondary"
-              outlined
-              class="inline-flex sm:hidden p-button-icon-only"
               @click="handleLogout"
             />
           </div>

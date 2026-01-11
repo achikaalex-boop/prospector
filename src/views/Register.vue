@@ -119,10 +119,9 @@ const handleRegister = async () => {
 
     if (authError) throw authError
 
-    success.value = 'Compte créé avec succès ! Redirection...'
-    setTimeout(() => {
-      router.push('/')
-    }, 1500)
+    // Inform the user to confirm their email before allowing full access
+    success.value = 'Compte créé. Veuillez vérifier votre boîte mail et cliquer sur le lien de confirmation pour activer votre compte.'
+    // do not redirect automatically — user must confirm email first
   } catch (err) {
     error.value = err.message || 'Erreur lors de l\'inscription'
   } finally {
