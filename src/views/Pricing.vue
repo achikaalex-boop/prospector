@@ -19,7 +19,7 @@
           <li v-if="p.included_minutes">Minutes inclues: <strong>{{ p.included_minutes }}</strong></li>
         </ul>
 
-        <div class="mt-4 bg-gray-50 p-3 rounded">
+        <div class="mt-4 bg-gray-50 p-3 rounded text-black">
           <label class="text-sm">Estimation d'appel (minutes)</label>
           <div class="mt-2 flex items-center gap-2">
             <input type="number" min="0" :value="estimatorMinutes[p.slug]" @input="(e)=>{ this.estimatorMinutes[p.slug] = Number(e.target.value) }" class="w-24 p-2 border rounded" />
