@@ -90,7 +90,7 @@
           <template #header>
             <div class="p-4 bg-gray-900 text-white rounded-t-lg">
               <div class="flex justify-between items-start">
-                <h3 class="text-xl font-bold">{{ campaign.company_name }}</h3>
+                <h3 class="text-xl font-bold text-white">{{ campaign.company_name }}</h3>
                 <Tag
                   :value="getStatusLabel(campaign.status)"
                   :severity="getStatusSeverity(campaign.status)"
