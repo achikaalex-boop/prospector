@@ -87,7 +87,7 @@ export default {
         let user_id = null
         try { const { data: { session } } = await supabase.auth.getSession(); user_id = session?.user?.id || null } catch (e) {}
 
-        const order = await createOrder(cents, this.currency, `Top-up ${this.amount} ${this.currency}`)
+        const order = await createOrder(cents, this.currency, `Top-up ${this.amount} ${this.currency}`, user_id)
         this.order = order
         const link = (order?.links || []).find(l => l.rel === 'approve')
         this.approvalLink = link ? link.href : null

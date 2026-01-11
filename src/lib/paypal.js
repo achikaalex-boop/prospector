@@ -1,9 +1,11 @@
 // Client helper (browser) to call server endpoints for PayPal top-up flow
 import axios from 'axios';
 
-export async function createOrder(amountCents, currency = 'USD', description = 'Top-up') {
-  const resp = await axios.post('/api/topup', { amount_cents: amountCents, currency, description });
-  return resp.data;
+export async function createOrder(amountCents, currency = 'USD', description = 'Top-up', userId = null) {
+  const body = { amount_cents: amountCents, currency, description }
+  if (userId) body.user_id = userId
+  const resp = await axios.post('/api/topup', body)
+  return resp.data
 }
 
 export async function captureOrder(orderID, userId, planSlug = null) {
