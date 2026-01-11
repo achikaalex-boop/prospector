@@ -7,7 +7,10 @@
       <div v-for="p in uiPlans" :key="p.slug" :class="['p-6 rounded-lg', p.slug === 'pro' ? 'bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-lg' : 'bg-white border']">
         <div class="flex items-center justify-between">
           <h3 class="text-lg font-semibold">{{ p.name }}</h3>
-          <span v-if="p.slug === 'pro'" class="text-xs uppercase px-2 py-1 bg-white/20 rounded">Populaire</span>
+          <div class="flex items-center gap-2">
+            <span v-if="p.slug === 'pro'" class="text-xs uppercase px-2 py-1 bg-white/20 rounded">Populaire</span>
+            <span v-if="activePlan && (activePlan.plan_slug === p.slug || activePlan.slug === p.slug)" class="text-xs uppercase px-2 py-1 bg-green-600 text-white rounded">Actif</span>
+          </div>
         </div>
         <div class="mt-4">
           <div class="text-3xl font-bold">${{ p.monthly_price.toFixed(2) }}</div>
@@ -74,6 +77,7 @@ export default {
         { slug: 'standard', name: 'Standard', monthly_price: 19.00, per_min_cents: 15, concurrency: 10, included_minutes: 200 },
         { slug: 'pro', name: 'Pro', monthly_price: 49.00, per_min_cents: 12, concurrency: 20, included_minutes: 1000 }
       ],
+      activePlan: null,
       balanceCents: 0,
       balanceLoading: true,
       approvalLink: null,
@@ -84,7 +88,7 @@ export default {
     }
   },
   async created() {
-    await Promise.all([this.fetchPlans(), this.fetchBalance()])
+    await Promise.all([this.fetchPlans(), this.fetchBalance(), this.fetchActivePlan()])
   },
   mounted() {
     window.addEventListener('balance:updated', this.fetchBalance)
@@ -134,6 +138,19 @@ export default {
         console.error('Could not fetch balance', e)
         this.balanceCents = 0
       } finally { this.balanceLoading = false }
+    },
+    async fetchActivePlan() {
+      try {
+        let user_id = null
+        try { const { data: { session } } = await supabase.auth.getSession(); user_id = session?.user?.id || null } catch (e) {}
+        if (!user_id) return
+        const resp = await fetch(`/api/user-plan?user_id=${user_id}`)
+        if (!resp.ok) return
+        const json = await resp.json()
+        this.activePlan = json.plan || null
+      } catch (e) {
+        // ignore
+      }
     },
     async subscribe(plan) {
       try {
