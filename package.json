@@ -14,11 +14,13 @@
     "@primevue/themes": "^4.5.3",
     "@supabase/supabase-js": "^2.39.0",
     "axios": "^1.6.2",
+    "bullmq": "^5.66.4",
     "express": "^4.21.2",
+    "ioredis": "^5.8.2",
+    "papaparse": "^5.4.1",
     "primeicons": "^7.0.0",
     "primevue": "^4.5.3",
     "vue": "^3.4.0",
-    "papaparse": "^5.4.1",
     "vue-router": "^4.2.5"
   },
   "devDependencies": {
