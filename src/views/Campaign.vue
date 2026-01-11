@@ -61,26 +61,32 @@
           <template #content>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div class="md:col-span-2">
-                <div class="flex flex-col sm:flex-row justify-between gap-3">
-                  <div class="flex items-center gap-3">
-                    <label class="text-sm text-gray-600">Plan:</label>
-                    <Dropdown v-model="selectedPlan" :options="plans.map(p => ({ label: p.name, value: p.slug }))" optionLabel="label" optionValue="value" class="w-48" />
-                    <label class="text-sm text-gray-600">Durée moyenne estimée (s):</label>
-                    <InputNumber v-model="estimatedAvgCallSeconds" :min="10" :step="10" class="w-28" />
-                    <Button label="Calculer le coût" icon="pi pi-calculator" @click="calculateEstimate" />
-                  </div>
-                </div>
-              </div>
-
-              <div class="md:col-span-2">
-                <label class="block mb-2 font-semibold text-gray-700">Nom de l'entreprise *</label>
-                <InputText v-model="formData.company_name" placeholder="Votre Entreprise" class="w-full" required />
+                <label class="block mb-2 font-semibold text-gray-700"
+                  >Nom de l'entreprise *</label
+                >
+                <InputText
+                  v-model="formData.company_name"
+                  placeholder="Votre Entreprise"
+                  class="w-full"
+                  required
+                />
               </div>
 
               <div>
-                <label class="block mb-2 font-semibold text-gray-700">Secteur d'activité *</label>
-                <Dropdown v-model="formData.domain" :options="domainOptions" placeholder="Sélectionnez un secteur" class="w-full" required />
-                <small class="text-gray-500 text-sm mt-1 block">Options disponibles : Immobilier, Tech, Finance, Conseil, Autre</small>
+                <label class="block mb-2 font-semibold text-gray-700"
+                  >Secteur d'activité *</label
+                >
+                <Dropdown
+                  v-model="formData.domain"
+                  :options="domainOptions"
+                  placeholder="Sélectionnez un secteur"
+                  class="w-full"
+                  required
+                />
+                <small class="text-gray-500 text-sm mt-1 block">
+                  Options disponibles : Immobilier, Tech, Finance, Conseil,
+                  Autre
+                </small>
               </div>
 
               <div>
