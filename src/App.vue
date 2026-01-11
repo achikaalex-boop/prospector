@@ -10,18 +10,28 @@
       </template>
       <template #end>
         <div class="flex items-center gap-3">
-          <div class="flex items-center gap-2 bg-white border rounded px-3 py-1 shadow-sm">
-            <div v-if="balanceLoading" class="text-sm text-gray-600">Solde: ...</div>
-            <div v-else class="text-sm font-medium">Solde: {{ (balanceCents/100).toFixed(2) }} USD</div>
+          <div class="flex items-center gap-2 bg-white border rounded px-3 py-1 shadow-sm min-w-0">
+            <div v-if="balanceLoading" class="text-sm text-gray-600 truncate">Solde: ...</div>
+            <div v-else class="text-sm font-medium truncate">Solde: {{ (balanceCents/100).toFixed(2) }} USD</div>
             <button @click.prevent="router.push('/topup')" class="ml-2 bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs">+</button>
           </div>
-          <Button
-            label="Déconnexion"
-            icon="pi pi-sign-out"
-            severity="secondary"
-            outlined
-            @click="handleLogout"
-          />
+          <div class="flex items-center gap-2">
+            <Button
+              label="Déconnexion"
+              icon="pi pi-sign-out"
+              severity="secondary"
+              outlined
+              class="hidden sm:inline-flex"
+              @click="handleLogout"
+            />
+            <Button
+              icon="pi pi-sign-out"
+              severity="secondary"
+              outlined
+              class="inline-flex sm:hidden p-button-icon-only"
+              @click="handleLogout"
+            />
+          </div>
         </div>
       </template>
     </Menubar>
