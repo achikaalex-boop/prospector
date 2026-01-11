@@ -1,9 +1,38 @@
 <template>
   <div class="p-6 max-w-md mx-auto">
-    <h2 class="text-2xl font-semibold mb-4">Top-up: confirmation</h2>
-    <div v-if="loading">Processing payment...</div>
-    <div v-else-if="success">Paiement capturé ✅</div>
-    <div v-else class="text-red-600">Erreur: {{ message }}</div>
+    <div class="bg-white rounded-lg shadow p-6 text-center">
+      <div v-if="loading" class="flex flex-col items-center gap-4">
+        <svg class="animate-spin h-10 w-10 text-blue-600" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+        </svg>
+        <div class="text-lg font-medium">Traitement du paiement...</div>
+        <div class="text-sm text-gray-500">Ne fermez pas cette page. Vous serez redirigé automatiquement.</div>
+      </div>
+
+      <div v-else-if="success" class="flex flex-col items-center gap-4">
+        <div class="rounded-full bg-green-100 p-3">
+          <svg class="h-10 w-10 text-green-600" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-7.071 7.071a1 1 0 01-1.414 0L3.293 9.95a1 1 0 011.414-1.414L8 11.828l6.293-6.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+          </svg>
+        </div>
+        <h2 class="text-2xl font-semibold">Paiement capturé ✅</h2>
+        <div v-if="captureAmount" class="text-lg">Montant crédité : <strong>{{ captureAmount }} {{ captureCurrency || 'USD' }}</strong></div>
+        <div v-if="orderId" class="text-sm text-gray-500">Référence : {{ orderId }}</div>
+        <div class="flex gap-3 mt-4">
+          <button @click="$router.push('/pricing')" class="px-4 py-2 bg-blue-600 text-white rounded">Retour au Pricing</button>
+          <button @click="$router.push('/')" class="px-4 py-2 border rounded">Dashboard</button>
+        </div>
+      </div>
+
+      <div v-else class="text-center">
+        <h2 class="text-xl font-semibold text-red-600">Erreur lors du paiement</h2>
+        <p class="mt-2 text-sm text-gray-700">{{ message }}</p>
+        <div class="mt-4">
+          <button @click="$router.push('/topup')" class="px-4 py-2 bg-blue-600 text-white rounded">Réessayer</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 

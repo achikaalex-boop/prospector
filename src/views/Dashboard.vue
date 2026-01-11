@@ -9,7 +9,14 @@
               <h1 class="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-2">
                 Dashboard
               </h1>
-              <p class="text-gray-600 text-base sm:text-lg">Gérez vos campagnes de prospection</p>
+                        <p class="text-gray-600 text-base sm:text-lg">Gérez vos campagnes de prospection</p>
+                        <div v-if="userPlan" class="mt-3 flex items-center gap-3">
+                          <Tag :value="userPlan.plan_slug || userPlan.name || 'Plan actif'" severity="info" />
+                          <div class="text-sm text-gray-600">
+                            <div v-if="userPlan.included_minutes">Inclus: {{ userPlan.included_minutes }} min</div>
+                            <div v-if="userPlan.expires_at">Expire: {{ formatDate(userPlan.expires_at) }}</div>
+                          </div>
+                        </div>
             </div>
             <div class="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
               <Button
@@ -286,6 +293,7 @@ const showDialog = ref(false)
 const viewMode = ref('grid')
 const loading = ref(true)
 const error = ref('')
+const userPlan = ref(null)
 const showResultDialog = ref(false)
 const selectedResult = ref(null)
 
@@ -389,6 +397,19 @@ const viewRawResult = (result) => {
   showResultDialog.value = true
 }
 
+const loadUserPlan = async () => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const resp = await fetch(`/api/user-plan?user_id=${user.id}`)
+    if (!resp.ok) return
+    const json = await resp.json()
+    userPlan.value = json.plan || null
+  } catch (e) {
+    // silent
+  }
+}
+
 const stopCampaign = async (campaignId) => {
   if (!confirm('Êtes-vous sûr de vouloir arrêter cette campagne ?')) return
 
@@ -408,6 +429,7 @@ const stopCampaign = async (campaignId) => {
 
 onMounted(() => {
   loadCampaigns()
+  loadUserPlan()
 })
 
 const prettyJson = (obj) => {

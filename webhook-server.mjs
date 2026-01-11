@@ -433,6 +433,21 @@ app.post('/api/topup', async (req, res) => {
   }
 });
 
+// Return active plan for a user. Accepts ?user_id= or JSON body { user_id }
+app.get('/api/user-plan', async (req, res) => {
+  try {
+    const userId = req.query.user_id || (req.body && req.body.user_id) || null
+    if (!userId) return res.status(400).json({ error: 'user_id required' })
+    if (!supabase) return res.status(500).json({ error: 'Supabase not configured' })
+    const { data, error } = await supabase.from('user_plans').select('*').eq('user_id', userId).order('started_at', { ascending: false }).limit(1).single().catch(() => ({ data: null }))
+    if (error) return res.status(500).json({ error })
+    return res.json({ plan: data || null })
+  } catch (e) {
+    console.error('Error in /api/user-plan:', e)
+    return res.status(500).json({ error: 'internal' })
+  }
+})
+
 // Admin endpoints to list call_webhooks (audit) and link a payload to a campaign
 app.get('/api/admin/call-webhooks', async (req, res) => {
   if (!supabase) return res.status(500).json({ error: 'Supabase not configured' })
@@ -545,14 +560,28 @@ app.post('/api/paypal/capture', async (req, res) => {
     }
 
     // Optionally, credit the user's account here (implementation depends on schema)
-    // Best-effort: if `user_id` provided and a `user_credits` table exists, insert credit row.
+    // If `user_id` not provided by client, attempt to look it up from a pending transaction record
     try {
-      if (supabase && user_id) {
+      let resolvedUserId = user_id || null
+      let resolvedPlanSlug = plan_slug || null
+      if (supabase && !resolvedUserId) {
+        try {
+          const { data: tx } = await supabase.from('billing_transactions').select('*').eq('order_id', orderID).limit(1).single().catch(() => ({ data: null }))
+          if (tx) {
+            resolvedUserId = tx.user_id || resolvedUserId
+            if (!resolvedPlanSlug && tx.meta && tx.meta.plan_slug) resolvedPlanSlug = tx.meta.plan_slug
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      if (supabase && resolvedUserId) {
         const amount = (capture?.purchase_units?.[0]?.payments?.captures?.[0]?.amount?.value) || null;
         const currency = (capture?.purchase_units?.[0]?.payments?.captures?.[0]?.amount?.currency_code) || null;
         if (amount) {
           const creditRow = {
-            user_id,
+            user_id: resolvedUserId,
             amount: Number(amount),
             currency: currency || 'USD',
             source: 'paypal',
@@ -566,16 +595,16 @@ app.post('/api/paypal/capture', async (req, res) => {
         }
 
         // If this capture was for a subscription activation, update user_plans
-        if (plan_slug) {
+        if (resolvedPlanSlug) {
           try {
             const startsAt = new Date().toISOString()
             const expiresAt = new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString()
             // upsert into user_plans: if row exists, update; else insert
-            const { data: existing } = await supabase.from('user_plans').select('*').eq('user_id', user_id).limit(1).single().catch(() => ({ data: null }))
+            const { data: existing } = await supabase.from('user_plans').select('*').eq('user_id', resolvedUserId).limit(1).single().catch(() => ({ data: null }))
             if (existing) {
-              await supabase.from('user_plans').update({ plan_slug, started_at: startsAt, expires_at: expiresAt }).eq('id', existing.id)
+              await supabase.from('user_plans').update({ plan_slug: resolvedPlanSlug, started_at: startsAt, expires_at: expiresAt }).eq('id', existing.id)
             } else {
-              await supabase.from('user_plans').insert([{ user_id, plan_slug, started_at: startsAt, expires_at: expiresAt }])
+              await supabase.from('user_plans').insert([{ user_id: resolvedUserId, plan_slug: resolvedPlanSlug, started_at: startsAt, expires_at: expiresAt }])
             }
           } catch (e) {
             console.warn('Could not update user_plans after subscription capture:', e.message || e)
