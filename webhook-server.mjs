@@ -232,7 +232,7 @@ app.post('/api/subscribe', async (req, res) => {
     if (!plan_slug) return res.status(400).json({ error: 'plan_slug required' })
     if (!amount_cents || Number(amount_cents) <= 0) return res.status(400).json({ error: 'amount_cents required and must be > 0' })
 
-    const frontendBase = process.env.FRONTEND_URL || process.env.VITE_APP_URL || `http://localhost:${process.env.PORT || 5173}`
+    const frontendBase = (req && (req.headers && req.headers.origin)) || process.env.FRONTEND_URL || process.env.VITE_APP_URL || `http://localhost:${process.env.PORT || 5173}`
     const returnUrl = `${frontendBase}/topup/complete?plan_slug=${encodeURIComponent(plan_slug)}`
     const cancelUrl = `${frontendBase}/pricing`
 
@@ -403,7 +403,7 @@ app.post('/api/topup', async (req, res) => {
     if (!amount_cents || Number(amount_cents) <= 0) return res.status(400).json({ error: 'amount_cents required and must be > 0' });
 
     // Determine return/cancel URLs
-    const frontendBase = process.env.FRONTEND_URL || process.env.VITE_APP_URL || `http://localhost:${process.env.PORT || 5173}`
+    const frontendBase = (req && (req.headers && req.headers.origin)) || process.env.FRONTEND_URL || process.env.VITE_APP_URL || `http://localhost:${process.env.PORT || 5173}`
     const returnUrl = req.body.return_url || `${frontendBase}/topup/complete`
     const cancelUrl = req.body.cancel_url || `${frontendBase}/topup`
 
