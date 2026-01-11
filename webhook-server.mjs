@@ -252,6 +252,140 @@ app.post('/api/subscribe', async (req, res) => {
   }
 })
 
+// Create campaign via server: checks billing/plan before inserting and enqueuing batch
+app.post('/api/create-campaign', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Supabase not configured' })
+    const payload = req.body || {}
+    const userId = payload.user_id || null
+    if (!userId) return res.status(400).json({ error: 'user_id required' })
+
+    const contactsCount = Number(payload.contacts_count || (Array.isArray(payload.contacts) ? payload.contacts.length : 0))
+    const avgCallSec = Number(payload.estimated_avg_call_seconds || 60)
+    const planSlug = payload.plan_slug || null
+
+    // Fetch active plan for user (join to plans table)
+    let plan = null
+    try {
+      const { data: up } = await supabase.from('user_plans').select('plan_id, started_at, expires_at, active').eq('user_id', userId).limit(1).single().catch(() => ({ data: null }))
+      if (up && up.plan_id) {
+        const { data: p } = await supabase.from('plans').select('*').eq('id', up.plan_id).limit(1).single().catch(() => ({ data: null }))
+        if (p) plan = p
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    // Fallback: if plan_slug provided, try to load it
+    if (!plan && planSlug) {
+      try { const { data: p } = await supabase.from('plans').select('*').eq('slug', planSlug).limit(1).single().catch(() => ({ data: null })); if (p) plan = p } catch (e) {}
+    }
+
+    // Default plan values if none
+    const providerCentsPerMin = 15
+    const margin = 2.0
+    const perMinCents = Math.ceil(providerCentsPerMin * margin)
+
+    const minutes = Math.ceil((contactsCount * avgCallSec) / 60)
+    const includedMinutes = plan && plan.included_minutes ? Number(plan.included_minutes) : 0
+    const maxContacts = plan && plan.max_contacts_per_campaign ? Number(plan.max_contacts_per_campaign) : 1000
+
+    if (maxContacts > 0 && contactsCount > maxContacts) {
+      return res.status(400).json({ error: `Le plan courant limite à ${maxContacts} contacts par campagne.`, max_contacts: maxContacts })
+    }
+
+    // compute used minutes this month for user
+    let usedMinutes = 0
+    try {
+      const startOfMonth = new Date()
+      startOfMonth.setUTCDate(1); startOfMonth.setUTCHours(0,0,0,0)
+      const { data: usage } = await supabase.from('usage_records').select('billed_minutes').eq('user_id', userId).gte('created_at', startOfMonth.toISOString())
+      if (Array.isArray(usage)) usedMinutes = usage.reduce((s, r) => s + (Number(r.billed_minutes) || 0), 0)
+    } catch (e) {}
+
+    const remainingIncluded = Math.max(0, includedMinutes - usedMinutes)
+
+    let overageMinutes = 0
+    if (minutes > remainingIncluded) overageMinutes = minutes - remainingIncluded
+    const overageCostCents = overageMinutes * perMinCents
+
+    // sum user credits
+    let creditCents = 0
+    try {
+      const { data: credits } = await supabase.from('user_credits').select('amount').eq('user_id', userId)
+      if (Array.isArray(credits)) {
+        const sum = credits.reduce((s, r) => s + (Number(r.amount) || 0), 0)
+        creditCents = Math.round(sum * 100)
+      }
+    } catch (e) {}
+
+    // If overage cost > available credits and plan has no included minutes covering it, reject
+    if (overageCostCents > 0 && creditCents < overageCostCents) {
+      const needCents = overageCostCents - creditCents
+      return res.status(402).json({ error: 'Solde insuffisant pour couvrir le coût estimé de la campagne.', required_topup_cents: needCents, required_topup_usd: (needCents/100).toFixed(2) })
+    }
+
+    // Otherwise, allowed. Insert campaign and forward to create-batch (enqueue)
+    const campaignRow = {
+      user_id: userId,
+      company_name: payload.company_name || null,
+      domain: payload.domain || null,
+      value_proposition: payload.promesse_de_valeur || null,
+      confidence_threshold: payload.confidence_threshold || 0.7,
+      agent_name: payload.agent_name || 'Agent',
+      referral_name: payload.referral_name || null,
+      infos: payload.infos || null,
+      objectifs: payload.objectifs || null,
+      contacts_count: contactsCount,
+      status: 'pending',
+      created_at: new Date().toISOString()
+    }
+
+    const { data: campaign, error: insertErr } = await supabase.from('campaigns').insert([campaignRow]).select().single()
+    if (insertErr || !campaign) return res.status(500).json({ error: 'Could not insert campaign', details: insertErr })
+
+    // build tasks and forward to create-batch endpoint
+    const tasks = (payload.contacts || []).filter(c => c.telephone).map(c => ({
+      to_number: c.telephone,
+      ignore_e164_validation: false,
+      retell_llm_dynamic_variables: {
+        campaign_id: campaign.id,
+        customer_name: c.nom || payload.contact_first_name || 'Monsieur/Madame',
+        contact_company: c.entreprise || null,
+        contact_email: c.email || null,
+        agent_name: campaignRow.agent_name,
+        company_name: campaignRow.company_name
+      }
+    }))
+
+    const batchBody = {
+      name: `Campagne ${campaignRow.company_name} - ${new Date().toISOString()}`,
+      from_number: payload.from_number || process.env.VITE_RETELL_FROM_NUMBER || null,
+      tasks,
+      send_now: true,
+      reserved_concurrency: Math.min(plan && plan.max_concurrency ? plan.max_concurrency : 1, Number(payload.reserved_concurrency || 1)),
+      call_time_window: payload.call_time_window || { windows: [{ start: 0, end: 1440 }], timezone: payload.timezone || 'UTC' }
+    }
+
+    try {
+      const resp = await axios.post(process.env.RETELL_API_URL || 'https://api.retellai.com/create-batch-call', batchBody, { headers: { Authorization: `Bearer ${process.env.RETELL_API_KEY || process.env.VITE_RETELL_API_KEY}` }, timeout: 20000 })
+      // mark campaign as running or store batch id
+      try { await supabase.from('campaigns').update({ status: 'running' }).eq('id', campaign.id) } catch (e) {}
+      return res.status(201).json({ ok: true, campaign: campaign, retell: resp.data })
+    } catch (e) {
+      // enqueue fallback: insert into job_queue
+      try {
+        await supabase.from('job_queue').insert([{ user_id: userId, plan_slug: plan ? plan.slug : null, status: 'pending', attempts: 0, payload: batchBody }])
+      } catch (qErr) {}
+      return res.status(202).json({ ok: true, campaign: campaign, queued: true })
+    }
+
+  } catch (e) {
+    console.error('Error in /api/create-campaign:', e)
+    return res.status(500).json({ error: 'internal' })
+  }
+})
+
 // Convenience top-up endpoint that accepts amount and current user and proxies to create-order
 app.post('/api/topup', async (req, res) => {
   try {

@@ -10,8 +10,11 @@
       </template>
       <template #end>
         <div class="flex items-center gap-3">
-          <div v-if="balanceLoading" class="text-sm text-gray-600">Solde: ...</div>
-          <div v-else class="text-sm font-medium">Solde: {{ (balanceCents/100).toFixed(2) }} USD</div>
+          <div class="flex items-center gap-2 bg-white border rounded px-3 py-1 shadow-sm">
+            <div v-if="balanceLoading" class="text-sm text-gray-600">Solde: ...</div>
+            <div v-else class="text-sm font-medium">Solde: {{ (balanceCents/100).toFixed(2) }} USD</div>
+            <button @click.prevent="router.push('/topup')" class="ml-2 bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs">+</button>
+          </div>
           <Button
             label="Déconnexion"
             icon="pi pi-sign-out"
@@ -27,7 +30,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from './lib/supabase'
 import Menubar from 'primevue/menubar'
@@ -48,6 +51,16 @@ const menuItems = computed(() => [
     label: 'Nouvelle Campagne',
     icon: 'pi pi-plus-circle',
     command: () => router.push('/campaign')
+  },
+  {
+    label: 'Pricing',
+    icon: 'pi pi-tags',
+    command: () => router.push('/pricing')
+  },
+  {
+    label: 'Top-up',
+    icon: 'pi pi-wallet',
+    command: () => router.push('/topup')
   },
   {
     label: 'Techniques',
@@ -105,6 +118,10 @@ onMounted(() => {
   } catch (error) {
     console.error('Erreur lors de l\'écoute des changements d\'authentification:', error)
   }
+  // Listen for global balance refresh events
+  const onBalanceUpdated = () => fetchBalance()
+  window.addEventListener('balance:updated', onBalanceUpdated)
+  onUnmounted(() => window.removeEventListener('balance:updated', onBalanceUpdated))
 })
 </script>
 

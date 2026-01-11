@@ -29,6 +29,7 @@ export default {
 
       await captureOrder(token, user_id, plan_slug)
       this.success = true
+      try { window.dispatchEvent(new CustomEvent('balance:updated')) } catch (e) {}
     } catch (e) {
       console.error('TopUpComplete error', e)
       this.message = e?.response?.data?.error || e.message || String(e)

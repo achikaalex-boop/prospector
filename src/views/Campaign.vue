@@ -713,147 +713,46 @@ const handleSubmit = async () => {
     sendServerLog(`Résultat supabase.auth.getUser(): ${user ? user.id : 'aucun user'}`, { user: user ? user.id : null })
     if (!user) throw new Error('Utilisateur non authentifié')
 
-    // Valeurs par défaut / normalisation pour les variables optionnelles
-    const normalizedFormData = {
-      ...formData,
-      confidence_threshold: formData.confidence_threshold || 0.7,
-      contact_first_name: formData.contact_first_name || 'Monsieur/Madame'
-    }
-
-    // Variables destinées à l'agent vocal (strictement selon la spec)
-    const agentVariables = {
-      // OBLIGATOIRES
-      agent_name: normalizedFormData.agent_name,
-      company_name: normalizedFormData.company_name,
-      domain: normalizedFormData.domain,
-      objectifs: normalizedFormData.objectifs,
-      promesse_de_valeur: normalizedFormData.promesse_de_valeur,
-      infos: normalizedFormData.infos,
-      // OPTIONNELLES
-      contact_first_name: normalizedFormData.contact_first_name,
-      referral_name: normalizedFormData.referral_name || null,
-      decision_maker_name: normalizedFormData.decision_maker_name || null,
-      processus_metier: normalizedFormData.processus_metier || null,
-      key_capability: normalizedFormData.key_capability || null,
-      call_script_example: normalizedFormData.call_script_example || null
-    }
-
-    const campaignData = {
-      variables: agentVariables,
-      contacts: contacts.value,
+    // Prepare payload to send to server for validation + creation
+    const payload = {
       user_id: user.id,
-      created_at: new Date().toISOString(),
-      status: 'pending'
+      company_name: formData.company_name,
+      domain: formData.domain,
+      promesse_de_valeur: formData.promesse_de_valeur,
+      confidence_threshold: formData.confidence_threshold || 0.7,
+      agent_name: formData.agent_name,
+      referral_name: formData.referral_name,
+      infos: formData.infos,
+      objectifs: formData.objectifs,
+      contacts: contacts.value,
+      contacts_count: contacts.value.length,
+      estimated_avg_call_seconds: Number(estimatedAvgCallSeconds.value) || 60,
+      from_number: formData.from_number,
+      timezone: formData.timezone
     }
-
-    const { data: campaign, error: dbError } = await supabase
-      .from('campaigns')
-      .insert([{
-        user_id: user.id,
-        company_name: formData.company_name,
-        domain: formData.domain,
-        value_proposition: formData.promesse_de_valeur,
-        confidence_threshold: typeof normalizedFormData.confidence_threshold === 'number'
-          ? normalizedFormData.confidence_threshold
-          : parseFloat(normalizedFormData.confidence_threshold),
-        agent_name: formData.agent_name,
-        referral_name: formData.referral_name,
-        infos: formData.infos,
-        objectifs: formData.objectifs,
-        contacts_count: contacts.value.length,
-        status: 'pending',
-        created_at: new Date().toISOString()
-      }])
-      .select()
-      .single()
-
-    if (dbError) throw dbError
-    sendServerLog(`Campagne insérée en base avec id: ${campaign.id}`, { campaign_id: campaign.id })
-
-    // Create batch via server-side endpoint to avoid exposing API keys to the client.
-    // Use the from_number selected in the form if present, otherwise fall back to env.
-    const retellFromNumber = formData.from_number || import.meta.env.VITE_RETELL_FROM_NUMBER || null
 
     try {
-      sendServerLog('Construction des tâches pour le serveur create-batch...', { contacts_count: contacts.value.length })
-      const tasks = contacts.value
-        .filter(c => c.telephone)
-        .map(c => {
-          const t = {
-            to_number: c.telephone,
-            // We explicitly do NOT set override_agent_id here per requirements
-            ignore_e164_validation: false,
-            retell_llm_dynamic_variables: {
-              ...agentVariables,
-              // map referral_name -> referal_name to match API field name expectations
-              referal_name: agentVariables.referral_name || null,
-              pain_point_identifie: formData.pain_point_identifie || null,
-              customer_name: c.nom || agentVariables.contact_first_name,
-              contact_company: c.entreprise || '',
-              contact_email: c.email || '',
-              campaign_id: campaign.id
-            }
-          }
-          return t
-        })
-
-      if (tasks.length === 0) {
-        console.warn('Aucun numéro de téléphone valide pour créer des tâches Retell.')
-        sendServerLog('Aucun numéro de téléphone valide trouvé dans les contacts; aucune tâche créée.', { contacts_count: contacts.value.length })
+      const resp = await axios.post('/api/create-campaign', payload, { timeout: 30000 })
+      if (resp.status === 201 || resp.status === 202) {
+        success.value = `Campagne créée avec succès ! ${contacts.value.length} contacts seront prospectés.`
+        setTimeout(() => router.push('/'), 2000)
       } else {
-        const batchBody = {
-          name: `Campagne ${formData.company_name} - ${new Date().toISOString()}`,
-          from_number: retellFromNumber,
-          tasks,
-          send_now: true,
-          trigger_timestamp: Date.now(),
-          reserved_concurrency: 1,
-          call_time_window: {
-            windows: [{ start: 0, end: 1440 }],
-            timezone: formData.timezone || 'Africa/Porto-Novo'
-          }
-        }
-
-        try {
-          const url = `${window.location.origin}/create-batch`
-          sendServerLog(`Envoi du batch au serveur: ${url}`, { tasks_count: tasks.length })
-          sendServerLog(`Batch body keys: ${Object.keys(batchBody)}`, { tasks_sample: tasks.slice(0,3) })
-          const resp = await axios.post(url, batchBody, { timeout: 20000 })
-          sendServerLog(`Réponse serveur create-batch: status=${resp.status}`, { data: resp.data })
-
-          // If server returned tasks_url (proxying Retell), fetch it to show per-task statuses
-          const batchInfo = resp.data || {}
-          if (batchInfo.tasks_url) {
-            try {
-              const tasksResp = await axios.get(batchInfo.tasks_url, { timeout: 10000 })
-              const tasksData = typeof tasksResp.data === 'string' ? JSON.parse(tasksResp.data) : tasksResp.data
-              sendServerLog('Tasks file fetched after server create-batch', { sample: (tasksData || []).slice(0,5) })
-            } catch (fetchErr) {
-              sendServerLog('Could not fetch tasks file after server create-batch', { error: fetchErr && fetchErr.message ? fetchErr.message : JSON.stringify(fetchErr) })
-            }
-          }
-
-          if (!resp || (resp.status < 200 || resp.status >= 300)) {
-            error.value = `Erreur serveur create-batch: status ${resp ? resp.status : 'no response'}`
-            sendServerLog(`Erreur: réponse non 2xx reçue du serveur create-batch`, { status: resp ? resp.status : null })
-          }
-        } catch (e) {
-          console.error('Erreur lors de l\'envoi au serveur create-batch:', e)
-          sendServerLog(`Erreur lors de l'appel serveur create-batch: ${e && e.message ? e.message : JSON.stringify(e)}`)
-          error.value = `Erreur lors de l'envoi au service d'appel: ${e && e.message ? e.message : 'erreur inconnue'}`
-        }
+        error.value = `Erreur lors de la création de la campagne: ${resp.data && resp.data.error ? resp.data.error : 'erreur inconnue'}`
       }
-    } catch (err) {
-      console.error('Erreur lors de la construction du batch pour le serveur:', err)
-      sendServerLog(`Erreur inattendue lors de la construction du batch: ${err && err.message ? err.message : JSON.stringify(err)}`)
+    } catch (e) {
+      if (e?.response?.status === 402) {
+        const data = e.response.data || {}
+        error.value = data.error || 'Solde insuffisant. Veuillez recharger votre compte.'
+      } else if (e?.response?.data && e.response.data.error) {
+        error.value = e.response.data.error
+      } else {
+        console.error('Erreur lors de la création de la campagne:', e)
+        error.value = 'Erreur lors de la création de la campagne (serveur)'
+      }
     }
-
-    success.value = `Campagne créée avec succès ! ${contacts.value.length} contacts seront prospectés.`
-
-    setTimeout(() => {
-      router.push('/')
-    }, 2000)
   } catch (err) {
+    console.error('Erreur lors de la construction du batch pour le serveur:', err)
+    sendServerLog(`Erreur inattendue lors de la construction du batch: ${err && err.message ? err.message : JSON.stringify(err)}`)
     error.value = err.message || 'Erreur lors de la création de la campagne'
   } finally {
     loading.value = false
