@@ -576,22 +576,43 @@ app.post('/api/paypal/capture', async (req, res) => {
         }
       }
 
-      if (supabase && resolvedUserId) {
-        const amount = (capture?.purchase_units?.[0]?.payments?.captures?.[0]?.amount?.value) || null;
-        const currency = (capture?.purchase_units?.[0]?.payments?.captures?.[0]?.amount?.currency_code) || null;
-        if (amount) {
-          const creditRow = {
-            user_id: resolvedUserId,
-            amount: Number(amount),
-            currency: currency || 'USD',
-            source: 'paypal',
-            meta: capture
-          };
-          try {
-            await supabase.from('user_credits').insert([creditRow]);
-          } catch (e) {
-            // ignore if table doesn't exist
+        if (supabase && resolvedUserId) {
+        const captureObj = capture?.purchase_units?.[0]?.payments?.captures?.[0] || null;
+        const amount = (captureObj?.amount?.value) || null;
+        const currency = (captureObj?.amount?.currency_code) || null;
+        const captureId = captureObj?.id || null;
+        // Prevent duplicate crediting: fetch recent credits for this user and inspect meta for order_id/capture_id
+        try {
+          const { data: recentCredits, error: recentErr } = await supabase.from('user_credits').select('*').eq('user_id', resolvedUserId).order('created_at', { ascending: false }).limit(50).catch(() => ({ data: null }))
+          let alreadyExists = false
+          if (Array.isArray(recentCredits)) {
+            alreadyExists = recentCredits.some(r => {
+              try {
+                if (!r.meta) return false
+                if (orderID && r.meta.order_id && String(r.meta.order_id) === String(orderID)) return true
+                if (captureId && r.meta.capture_id && String(r.meta.capture_id) === String(captureId)) return true
+                return false
+              } catch (e) { return false }
+            })
           }
+          if (alreadyExists) {
+            console.log('Skipping credit insertion: already credited for order/capture', { orderID, captureId })
+          } else if (amount) {
+            const creditRow = {
+              user_id: resolvedUserId,
+              amount: Number(amount),
+              currency: currency || 'USD',
+              source: 'paypal',
+              meta: Object.assign({}, capture, { order_id: orderID, capture_id: captureId })
+            };
+            try {
+              await supabase.from('user_credits').insert([creditRow]);
+            } catch (e) {
+              console.warn('Could not insert user_credits row:', e.message || e)
+            }
+          }
+        } catch (e) {
+          console.warn('Error checking/inserting user_credits idempotently:', e.message || e)
         }
 
         // If this capture was for a subscription activation, update user_plans
