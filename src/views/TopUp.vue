@@ -115,6 +115,9 @@ export default {
           if (resp.credited) this.message = 'Paiement capturé et solde crédité avec succès.'
           else this.message = 'Paiement capturé et frais d\'abonnement déduits du solde.'
           try { window.dispatchEvent(new CustomEvent('balance:updated')) } catch (e) {}
+          if (resp.plan_updated) {
+            try { window.dispatchEvent(new CustomEvent('plan:updated')) } catch (e) {}
+          }
         } else if (resp && (resp.credit_error || resp.deduction_error)) {
           const err = resp.credit_error || resp.deduction_error
           this.message = 'Paiement capturé, mais mise à jour du solde échouée: ' + String(err)

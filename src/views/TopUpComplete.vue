@@ -66,6 +66,9 @@ export default {
           if (resp.credited) toast.add({ severity: 'success', summary: 'Paiement', detail: 'Paiement capturé et solde crédité', life: 6000 })
           else toast.add({ severity: 'success', summary: 'Paiement', detail: 'Paiement capturé et frais d\'abonnement déduits du solde', life: 6000 })
           try { window.dispatchEvent(new CustomEvent('balance:updated')) } catch (e) {}
+          if (resp.plan_updated) {
+            try { window.dispatchEvent(new CustomEvent('plan:updated')) } catch (e) {}
+          }
         } else if (resp && (resp.credit_error || resp.deduction_error)) {
           this.success = true
           const err = resp.credit_error || resp.deduction_error

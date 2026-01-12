@@ -649,6 +649,9 @@ app.post('/api/paypal/capture', async (req, res) => {
     // Track whether we successfully applied a credit row so the client can know
     let credited = false
     let creditError = null
+    // Track plan update
+    let planUpdated = false
+    let planUpdateError = null
     // Track whether we deducted subscription fee
     let deductionApplied = false
     let deductionError = null
@@ -742,10 +745,17 @@ app.post('/api/paypal/capture', async (req, res) => {
             } catch (e) {
               existing = null
             }
-            if (existing) {
-              await supabase.from('user_plans').update({ plan_slug: resolvedPlanSlug, started_at: startsAt, expires_at: expiresAt }).eq('id', existing.id)
-            } else {
-              await supabase.from('user_plans').insert([{ user_id: resolvedUserId, plan_slug: resolvedPlanSlug, started_at: startsAt, expires_at: expiresAt }])
+            try {
+              if (existing) {
+                await supabase.from('user_plans').update({ plan_slug: resolvedPlanSlug, started_at: startsAt, expires_at: expiresAt }).eq('id', existing.id)
+              } else {
+                await supabase.from('user_plans').insert([{ user_id: resolvedUserId, plan_slug: resolvedPlanSlug, started_at: startsAt, expires_at: expiresAt }])
+              }
+              planUpdated = true
+            } catch (pe) {
+              planUpdated = false
+              planUpdateError = pe?.message || pe
+              console.warn('Could not upsert user_plans after subscription capture:', planUpdateError)
             }
             // After activating subscription, attempt to deduct the subscription amount from user_credits
               try {
@@ -795,7 +805,7 @@ app.post('/api/paypal/capture', async (req, res) => {
     }
 
     // Return capture payload plus a small status indicating whether we applied a credit row
-    return res.json({ capture, credited, credit_error: creditError, deduction_applied: deductionApplied, deduction_error: deductionError })
+    return res.json({ capture, credited, credit_error: creditError, deduction_applied: deductionApplied, deduction_error: deductionError, plan_updated: planUpdated })
   } catch (err) {
     console.error('Error capturing PayPal order (unexpected):', err?.response?.data || err.message || err);
     const status = err?.response?.status || 500;

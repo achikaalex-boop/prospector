@@ -309,7 +309,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { supabase } from '../lib/supabase'
 import Card from 'primevue/card'
 import Button from 'primevue/button'
@@ -509,6 +509,11 @@ const stopCampaign = async (campaignId) => {
 onMounted(() => {
   loadCampaigns()
   loadUserPlan()
+  window.addEventListener('plan:updated', loadUserPlan)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('plan:updated', loadUserPlan)
 })
 
 const prettyJson = (obj) => {
