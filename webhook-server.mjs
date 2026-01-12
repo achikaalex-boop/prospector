@@ -84,8 +84,22 @@ if (supabase) {
 async function getUserPlanSlug(userId) {
   try {
     if (!userId || !supabase) return 'free'
-    const { data, error } = await supabase.from('user_plans').select('plan_slug').eq('user_id', userId).limit(1).single()
+    const { data, error } = await supabase.from('user_plans').select('id,plan_slug,started_at,expires_at').eq('user_id', userId).order('started_at', { ascending: false }).limit(1).single()
     if (error || !data) return 'free'
+    try {
+      if (data.expires_at && new Date(data.expires_at) <= new Date()) {
+        // plan expired: attempt to reset to starter/free
+        try {
+          await supabase.from('user_plans').update({ plan_slug: 'starter', started_at: new Date().toISOString(), expires_at: null }).eq('id', data.id)
+          console.log('Reset expired plan to starter for user', userId)
+        } catch (e) {
+          console.warn('Could not reset expired user_plans for user', userId, e?.message || e)
+        }
+        return 'starter'
+      }
+    } catch (e) {
+      // ignore parse errors
+    }
     return data.plan_slug || 'free'
   } catch (e) {
     return 'free'
@@ -523,7 +537,25 @@ app.get('/api/user-plan', async (req, res) => {
     try {
       const resp = await supabase.from('user_plans').select('*').eq('user_id', userId).order('started_at', { ascending: false }).limit(1).single()
       if (resp.error) return res.status(500).json({ error: resp.error })
-      return res.json({ plan: resp.data || null })
+      const planRow = resp.data || null
+      if (planRow && planRow.expires_at) {
+        try {
+          if (new Date(planRow.expires_at) <= new Date()) {
+            // expired -> reset to starter (best-effort)
+            try {
+              await supabase.from('user_plans').update({ plan_slug: 'starter', started_at: new Date().toISOString(), expires_at: null }).eq('id', planRow.id)
+              console.log('Reset expired plan to starter for user', userId)
+              // return the starter plan row to client
+              planRow.plan_slug = 'starter'
+              planRow.started_at = new Date().toISOString()
+              planRow.expires_at = null
+            } catch (e) {
+              console.warn('Could not reset expired user_plans for user', userId, e?.message || e)
+            }
+          }
+        } catch (e) {}
+      }
+      return res.json({ plan: planRow || null })
     } catch (e) {
       console.error('Error in /api/user-plan:', e)
       return res.status(500).json({ error: 'internal' })
