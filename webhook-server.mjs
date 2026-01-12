@@ -783,11 +783,13 @@ app.post('/api/paypal/webhook', async (req, res) => {
         if (supabase) {
           const orderId = capture?.supplementary_data?.related_ids?.order_id || capture?.invoice_id || capture?.id || null;
           const tableCandidates = ['billing_transactions', 'transactions', 'billing.transactions'];
+          let resolvedTx = null
           for (const tbl of tableCandidates) {
             try {
               if (orderId) {
                 const { data: existing } = await supabase.from(tbl).select('*').eq('order_id', orderId).limit(1).single();
                 if (existing) {
+                  resolvedTx = existing
                   await supabase.from(tbl).update({ status: 'captured', raw_response: event }).eq('id', existing.id);
                   break;
                 }
@@ -795,6 +797,81 @@ app.post('/api/paypal/webhook', async (req, res) => {
             } catch (e) {
               // try next
             }
+          }
+
+          // If we resolved a transaction or can extract a user, attempt to credit user_credits idempotently
+          try {
+            let resolvedUserId = resolvedTx?.user_id || null
+            // fallback: try to find a tx in billing_transactions by order id if not resolved above
+            if (!resolvedUserId && orderId) {
+              try {
+                const { data: row } = await supabase.from('billing_transactions').select('*').eq('order_id', orderId).limit(1).single()
+                if (row) resolvedUserId = row.user_id || resolvedUserId
+              } catch (e) {}
+            }
+
+            if (resolvedUserId) {
+              const captureObj = capture?.purchase_units?.[0]?.payments?.captures?.[0] || capture || null;
+              const amount = (captureObj?.amount?.value) || captureObj?.amount?.value || null;
+              const currency = (captureObj?.amount?.currency_code) || null;
+              const captureId = captureObj?.id || captureObj?.capture_id || null;
+
+              // idempotent check
+              try {
+                const { data: recentCredits } = await supabase.from('user_credits').select('*').eq('user_id', resolvedUserId).order('created_at', { ascending: false }).limit(50)
+                let alreadyExists = false
+                if (Array.isArray(recentCredits)) {
+                  alreadyExists = recentCredits.some(r => {
+                    try {
+                      if (!r.meta) return false
+                      if (orderId && r.meta.order_id && String(r.meta.order_id) === String(orderId)) return true
+                      if (captureId && r.meta.capture_id && String(r.meta.capture_id) === String(captureId)) return true
+                      return false
+                    } catch (e) { return false }
+                  })
+                }
+                if (!alreadyExists && amount) {
+                  const creditRow = {
+                    user_id: resolvedUserId,
+                    amount: Number(amount),
+                    currency: currency || 'USD',
+                    source: 'paypal_webhook',
+                    meta: Object.assign({}, capture, { order_id: orderId, capture_id: captureId })
+                  }
+                  try {
+                    await supabase.from('user_credits').insert([creditRow])
+                    console.log('Inserted user_credits via PayPal webhook', { user: resolvedUserId, orderId, captureId })
+                  } catch (e) {
+                    console.warn('Could not insert user_credits from webhook:', e?.message || e)
+                  }
+                }
+              } catch (e) {
+                console.warn('Error checking/inserting user_credits from webhook:', e?.message || e)
+              }
+
+              // If transaction contained plan_meta, update user_plans
+              try {
+                const planSlug = resolvedTx?.meta?.plan_slug || resolvedTx?.meta?.plan || null
+                if (planSlug) {
+                  const startsAt = new Date().toISOString()
+                  const expiresAt = new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString()
+                  let existing = null
+                  try {
+                    const resp = await supabase.from('user_plans').select('*').eq('user_id', resolvedUserId).limit(1).single()
+                    existing = resp?.data || null
+                  } catch (e) { existing = null }
+                  if (existing) {
+                    await supabase.from('user_plans').update({ plan_slug: planSlug, started_at: startsAt, expires_at: expiresAt }).eq('id', existing.id)
+                  } else {
+                    await supabase.from('user_plans').insert([{ user_id: resolvedUserId, plan_slug: planSlug, started_at: startsAt, expires_at: expiresAt }])
+                  }
+                }
+              } catch (e) {
+                console.warn('Could not update user_plans from webhook:', e?.message || e)
+              }
+            }
+          } catch (e) {
+            console.warn('Non-fatal: could not apply credits from PayPal webhook:', e?.message || e)
           }
         }
       } catch (e) {
