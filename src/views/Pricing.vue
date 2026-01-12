@@ -48,11 +48,7 @@
       </div>
     </div>
 
-    <div class="mt-6">
-      <h2 class="text-xl font-semibold mb-2">Solde</h2>
-      <div v-if="balanceLoading">Chargement du solde...</div>
-      <div v-else class="text-lg">{{ displayMoney(balanceCents) }} USD</div>
-    </div>
+    
 
     
   </div>

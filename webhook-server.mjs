@@ -343,6 +343,16 @@ app.post('/api/create-campaign', async (req, res) => {
       } catch (e) {}
     }
 
+    // Ensure plan is an object and apply defaults for free plan to force upgrade
+    plan = plan || { slug: planSlug || 'free' }
+    if (planIsFree(plan.slug)) {
+      // conservative but forcing limits for free tier
+      plan.max_contacts_per_campaign = Number(plan.max_contacts_per_campaign || 10)
+      plan.max_concurrency = Number(plan.max_concurrency || 1)
+      plan.monthly_campaign_limit = Number(plan.monthly_campaign_limit || 5)
+      plan.included_minutes = Number(plan.included_minutes || 0)
+    }
+
     // Default plan values if none
     const providerCentsPerMin = 15
     const margin = 2.0
@@ -351,6 +361,21 @@ app.post('/api/create-campaign', async (req, res) => {
     const minutes = Math.ceil((contactsCount * avgCallSec) / 60)
     const includedMinutes = plan && plan.included_minutes ? Number(plan.included_minutes) : 0
     const maxContacts = plan && plan.max_contacts_per_campaign ? Number(plan.max_contacts_per_campaign) : 1000
+
+    // Enforce monthly campaign limit (for free tier mainly)
+    try {
+      const startOfMonth = new Date()
+      startOfMonth.setUTCDate(1); startOfMonth.setUTCHours(0,0,0,0)
+      const { data: monthCampaigns, error: monthErr } = await supabase.from('campaigns').select('id').eq('user_id', userId).gte('created_at', startOfMonth.toISOString())
+      const createdThisMonth = Array.isArray(monthCampaigns) ? monthCampaigns.length : 0
+      const monthlyLimit = plan && Number(plan.monthly_campaign_limit) ? Number(plan.monthly_campaign_limit) : 0
+      if (monthlyLimit > 0 && createdThisMonth >= monthlyLimit) {
+        return res.status(403).json({ error: `Vous avez atteint la limite de ${monthlyLimit} campagnes pour ce mois. Passez à un plan payant pour supprimer cette limite.` })
+      }
+    } catch (e) {
+      // if counting fails, allow creation (best-effort)
+      console.warn('Could not check monthly campaign count:', e?.message || e)
+    }
 
     if (maxContacts > 0 && contactsCount > maxContacts) {
       return res.status(400).json({ error: `Le plan courant limite à ${maxContacts} contacts par campagne.`, max_contacts: maxContacts })
@@ -420,12 +445,16 @@ app.post('/api/create-campaign', async (req, res) => {
       }
     }))
 
+    const planMaxConcurrency = plan && plan.max_concurrency ? Number(plan.max_concurrency) : 1
+    const requestedConcurrency = Math.max(1, Number(payload.reserved_concurrency || planMaxConcurrency || 1))
+    const reservedConcurrency = Math.min(planMaxConcurrency, requestedConcurrency)
+
     const batchBody = {
       name: `Campagne ${campaignRow.company_name} - ${new Date().toISOString()}`,
       from_number: payload.from_number || process.env.VITE_RETELL_FROM_NUMBER || null,
       tasks,
       send_now: true,
-      reserved_concurrency: Math.min(plan && plan.max_concurrency ? plan.max_concurrency : 1, Number(payload.reserved_concurrency || 1)),
+      reserved_concurrency: reservedConcurrency,
       call_time_window: payload.call_time_window || { windows: [{ start: 0, end: 1440 }], timezone: payload.timezone || 'UTC' }
     }
 

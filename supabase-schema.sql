@@ -303,6 +303,7 @@ CREATE TABLE IF NOT EXISTS plans (
   included_minutes INTEGER DEFAULT 0,
   per_min_cents INTEGER DEFAULT 0,
   max_contacts_per_campaign INTEGER DEFAULT 1000,
+  monthly_campaign_limit INTEGER DEFAULT 0,
   max_concurrency INTEGER DEFAULT 1,
   description TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -372,7 +373,7 @@ CREATE POLICY "Server can manage jobs"
 -- ============================================
 INSERT INTO plans (slug, name, monthly_price_cents, included_minutes, per_min_cents, max_contacts_per_campaign, max_concurrency, description)
 SELECT * FROM (VALUES
-  ('free','Free',0,0,0,100,1,'Free tier with no included minutes (trial)'),
+  ('free','Free',0,0,0,10,5,1,'Free tier: limited to 10 contacts per campaign, 1 concurrency, 5 campaigns/month'),
   ('starter','Starter',9900,600,15,1000,2,'Starter plan: includes minutes and modest concurrency'),
   ('pro','Pro',29900,5000,10,5000,10,'Pro plan with higher limits and lower per-minute cost')
 ) AS t(slug,name,monthly_price_cents,included_minutes,per_min_cents,max_contacts_per_campaign,max_concurrency,description)

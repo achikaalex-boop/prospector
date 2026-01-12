@@ -24,6 +24,14 @@
         </template>
       </Card>
 
+      <!-- Monthly campaign usage / limits -->
+      <div class="mb-4">
+        <div v-if="monthlyLimit > 0">
+          <div v-if="remainingSlots === 0" class="text-sm text-red-600">Vous avez atteint votre limite de {{ monthlyLimit }} campagnes ce mois (plan: {{ selectedPlan }}). Passez à un plan payant pour lancer davantage de campagnes.</div>
+          <div v-else class="text-sm text-gray-700">Campagnes ce mois: {{ monthlyCount }} / {{ monthlyLimit }} — il vous reste {{ remainingSlots }}.</div>
+        </div>
+      </div>
+
       <!-- Notifications are shown via toasts (PrimeVue ToastService) -->
 
       <!-- Debug logs are sent to the server for Render.com; not shown to clients -->
@@ -403,7 +411,8 @@
                 label="Lancer la Campagne"
                 icon="pi pi-send"
                 :loading="loading"
-                :disabled="loading || contacts.length === 0"
+                :disabled="loading || contacts.length === 0 || (monthlyLimit > 0 && remainingSlots === 0)"
+                :title="(monthlyLimit > 0 && remainingSlots === 0) ? 'Quota mensuel atteint — passez à un plan payant pour lancer plus de campagnes' : ''"
               />
             </div>
           </template>
@@ -414,7 +423,7 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '../lib/supabase'
 import axios from 'axios'
@@ -543,6 +552,28 @@ const plans = ref([])
 const selectedPlan = ref('starter')
 const estimatedAvgCallSeconds = ref(60)
 const estimate = ref(null)
+
+const monthlyCount = ref(0)
+
+const selectedPlanObj = computed(() => plans.value.find(p => p.slug === selectedPlan.value) || null)
+const monthlyLimit = computed(() => Number(selectedPlanObj.value?.monthly_campaign_limit || 0))
+const remainingSlots = computed(() => Math.max(0, monthlyLimit.value - (monthlyCount.value || 0)))
+
+const loadMonthlyCount = async () => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const startOfMonth = new Date()
+    startOfMonth.setUTCDate(1); startOfMonth.setUTCHours(0,0,0,0)
+    const { data, error } = await supabase.from('campaigns').select('id').eq('user_id', user.id).gte('created_at', startOfMonth.toISOString())
+    if (!error && Array.isArray(data)) monthlyCount.value = data.length
+  } catch (e) {
+    // ignore
+  }
+}
+
+onMounted(() => { loadMonthlyCount() })
+watch(selectedPlan, () => { loadMonthlyCount() })
 
 const loadPlans = async () => {
   try {
