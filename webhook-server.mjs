@@ -699,6 +699,11 @@ app.post('/api/paypal/capture', async (req, res) => {
           if (alreadyExists) {
             console.log('Skipping credit insertion: already credited for order/capture', { orderID, captureId })
           } else if (amount) {
+            // If this capture is for a subscription activation (we resolved a plan slug),
+            // do NOT credit `user_credits` (that would erroneously increase the user's balance).
+            if (resolvedPlanSlug) {
+              console.log('Capture is for subscription activation; skipping credit insert for user', resolvedUserId)
+            } else {
             const creditRow = {
               user_id: resolvedUserId,
               amount: Number(amount),
@@ -714,6 +719,7 @@ app.post('/api/paypal/capture', async (req, res) => {
             } catch (e) {
               creditError = e.message || e
               console.warn('Could not insert user_credits row:', creditError)
+            }
             }
           }
         } catch (e) {
@@ -844,7 +850,9 @@ app.post('/api/paypal/webhook', async (req, res) => {
                     } catch (e) { return false }
                   })
                 }
-                if (!alreadyExists && amount) {
+                // If this transaction appears to be a subscription activation (meta.plan_slug present),
+                // skip inserting into `user_credits` to avoid increasing the user's balance.
+                if (!alreadyExists && amount && !planSlug) {
                   const creditRow = {
                     user_id: resolvedUserId,
                     amount: Number(amount),
