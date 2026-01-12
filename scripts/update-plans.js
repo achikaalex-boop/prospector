@@ -25,7 +25,15 @@ const plans = [
     max_contacts_per_campaign: 1000,
     monthly_campaign_limit: 0,
     max_concurrency: 1,
-    description: 'Objectif: tester sans risque. Minutes incluses: 5/mois. Overage: $0.35/min. Priorité réseau: basse. Soft limit: 80%. Throttling progressif.'
+    description: 'Objectif: tester sans risque. Minutes incluses: 5/mois. Overage: $0.35/min. Priorité réseau: basse. Soft limit: 80%. Throttling progressif.',
+    tagline: 'Découverte sécurisée',
+    objective: 'tester sans risque',
+    minutes_expiry_days: 30,
+    card_required: true,
+    network_priority: 'low',
+    soft_limit_percent: 80,
+    has_dedicated_number: false,
+    has_extra_concurrency: false
   },
   {
     slug: 'starter',
@@ -36,7 +44,15 @@ const plans = [
     max_contacts_per_campaign: 1000,
     monthly_campaign_limit: 0,
     max_concurrency: 2,
-    description: 'Starter: 300 minutes/mois, concurrency 2, overage $0.30/min, options: numéro dédié (add-on). Soft limit 85%.'
+    description: 'Starter: 300 minutes/mois, concurrency 2, overage $0.30/min, options: numéro dédié (add-on). Soft limit 85%.',
+    tagline: 'Indépendants, petites équipes',
+    objective: 'Usage régulier',
+    minutes_expiry_days: 30,
+    card_required: true,
+    network_priority: 'standard',
+    soft_limit_percent: 85,
+    has_dedicated_number: true,
+    has_extra_concurrency: false
   },
   {
     slug: 'pro',
@@ -47,7 +63,15 @@ const plans = [
     max_contacts_per_campaign: 1000,
     monthly_campaign_limit: 0,
     max_concurrency: 10,
-    description: 'Pro: 1500 minutes/mois, concurrency 10, overage $0.25/min, options: numéro dédié, concurrency add-on. Soft limit 95%.'
+    description: 'Pro: 1500 minutes/mois, concurrency 10, overage $0.25/min, options: numéro dédié, concurrency add-on. Soft limit 95%.',
+    tagline: 'Utilisateurs intensifs',
+    objective: 'Équipes structurées et usage intensif',
+    minutes_expiry_days: 30,
+    card_required: true,
+    network_priority: 'high',
+    soft_limit_percent: 95,
+    has_dedicated_number: true,
+    has_extra_concurrency: true
   }
 ]
 

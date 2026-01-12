@@ -1,44 +1,60 @@
 <template>
-  <div class="p-6 max-w-3xl mx-auto">
+  <div class="p-6 max-w-4xl mx-auto">
     <h1 class="text-3xl font-bold mb-4">Abonnements</h1>
-    <div class="mb-4 text-sm text-gray-600">Choisissez un abonnement. Les appels sont facturés à la minute en plus si applicable.</div>
+    <div class="mb-4 text-sm text-gray-600">Choisissez un abonnement adapté à votre usage. Les appels sont facturés à la minute en sus si applicable.</div>
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
       <div v-for="p in uiPlans" :key="p.slug" :class="['p-6 rounded-lg', p.slug === 'pro' ? 'bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-lg' : 'bg-white border']">
-        <div class="flex items-center justify-between">
-          <h3 class="text-lg font-semibold">{{ p.name }}</h3>
-          <div class="flex items-center gap-2">
-            <span v-if="p.slug === 'pro'" class="text-xs uppercase px-2 py-1 bg-white/20 rounded">Populaire</span>
-            <span v-if="activePlan && (activePlan.plan_slug === p.slug || activePlan.slug === p.slug)" class="text-xs uppercase px-2 py-1 bg-green-600 text-white rounded">Actif</span>
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <div class="flex items-center gap-2">
+              <span v-if="p.slug === 'free'" class="text-green-500">🟢</span>
+              <span v-else-if="p.slug === 'starter' || p.slug === 'standard'" class="text-blue-500">🔵</span>
+              <span v-else-if="p.slug === 'pro'" class="text-red-500">🔴</span>
+              <h3 class="text-lg font-semibold">{{ p.name }} <span class="text-xs ml-2 text-gray-500">{{ p.tagline || '' }}</span></h3>
+            </div>
+            <div class="mt-3 text-sm text-gray-200/80">
+              <div class="text-xl font-bold">{{ displayMoney(monthlyPriceCents(p)) }} USD</div>
+              <div class="text-sm text-gray-400">/ mois</div>
+            </div>
+          </div>
+          <div class="text-right">
+            <div v-if="activePlan && (activePlan.plan_slug === p.slug || activePlan.slug === p.slug)" class="text-xs uppercase px-2 py-1 bg-green-600 text-white rounded">Actif</div>
           </div>
         </div>
+
+        <div class="mt-4 text-sm">
+          <p v-if="p.objective" class="mb-2"><strong>Objectif :</strong> {{ p.objective }}</p>
+
+          <p class="font-semibold">Inclus</p>
+          <ul class="mt-2 space-y-1">
+            <li><strong>Prix :</strong> {{ displayMoney(monthlyPriceCents(p)) }} USD</li>
+            <li><strong>Minutes incluses :</strong> {{ p.included_minutes || '—' }} / mois <small class="text-gray-500">(non reportables)</small></li>
+            <li><strong>Concurrency :</strong> {{ p.max_concurrency || p.concurrency || '—' }}</li>
+            <li v-if="p.minutes_expiry_days"><strong>Expiration des minutes :</strong> {{ p.minutes_expiry_days }} jours</li>
+            <li><strong>Carte bancaire requise :</strong> <span v-if="p.card_required">✅</span><span v-else>❌</span></li>
+            <li><strong>Priorité réseau :</strong> {{ p.network_priority || 'standard' }}</li>
+            <li><strong>Soft limit :</strong> {{ p.soft_limit_percent || '—' }}%</li>
+            <li>Throttling après dépassement</li>
+          </ul>
+
+          <p class="mt-3 font-semibold">Au-delà</p>
+          <ul class="mt-2 space-y-1">
+            <li><strong>Facturation :</strong> {{ displayMoney(p.per_min_cents || 0) }} USD / minute</li>
+          </ul>
+
+          <p class="mt-3 font-semibold">Options</p>
+          <ul class="mt-2 space-y-1 text-sm text-gray-700">
+            <li v-if="p.has_dedicated_number">Numéro dédié sur demande (add-on)</li>
+            <li v-if="p.has_extra_concurrency">Concurrency supplémentaire (add-on)</li>
+            <li v-if="!p.has_dedicated_number">Pas de numéro dédié</li>
+          </ul>
+
+          <p v-if="p.description" class="mt-3 text-xs text-gray-500">{{ p.description }}</p>
+
+        </div>
+
         <div class="mt-4">
-           <div class="text-3xl font-bold">${{ (p.monthly_price || p.monthly_price_cents/100).toFixed(2) }}</div>
-           <div class="text-sm text-gray-200/80">/ mois</div>
-        </div>
-        <ul class="mt-4 text-sm">
-           <li>Concurrency: <strong>{{ p.max_concurrency || p.concurrency }}</strong></li>
-           <li>Coût inclus par minute: <strong>{{ displayMoney((p.per_min_cents || p.per_min_cents)/1) }} USD</strong></li>
-           <li v-if="(p.included_minutes || p.included_minutes === 0)">Minutes inclues: <strong>{{ p.included_minutes }}</strong></li>
-           <li v-if="p.description" class="mt-2 text-xs text-gray-600">{{ p.description }}</li>
-        </ul>
-
-          <div class="mt-4 bg-gray-50 p-3 rounded text-black">
-            <label class="text-sm">Estimation d'appel (minutes)</label>
-            <div class="mt-2 flex items-center gap-2">
-              <input type="number" min="0" :value="estimatorMinutes[p.slug]" @input="(e)=>{ this.estimatorMinutes[p.slug] = Number(e.target.value) }" class="w-24 p-2 border rounded" />
-              <div class="text-sm">Coût estimé: <strong>{{ displayMoney(estimateCostCents(p, estimatorMinutes[p.slug]||defaultEstimateMinutes)) }} USD</strong></div>
-            </div>
-            <div class="mt-2 text-sm text-gray-700">
-              <div v-if="balanceLoading">Chargement du solde...</div>
-              <div v-else>
-                <span v-if="needsTopupCents(p, estimatorMinutes[p.slug]||defaultEstimateMinutes) > 0" class="text-red-600">Top-up requis: {{ displayMoney(needsTopupCents(p, estimatorMinutes[p.slug]||defaultEstimateMinutes)) }} USD</span>
-                <span v-else class="text-green-600">Solde suffisant pour l'estimation</span>
-              </div>
-            </div>
-          </div>
-
-        <div class="mt-6">
           <template v-if="p.slug !== 'free'">
             <div class="flex items-center gap-2">
               <button @click="subscribe(p)" :disabled="isPlanActive(p) || isLoading" :class="(p.slug === 'pro' ? 'bg-white text-blue-700 px-4 py-2 rounded' : 'bg-blue-600 text-white px-4 py-2 rounded') + (isPlanActive(p) || isLoading ? ' opacity-50 cursor-not-allowed' : '')">{{ isPlanActive(p) ? 'Abonné' : 'S\'abonner' }}</button>
@@ -51,10 +67,6 @@
         </div>
       </div>
     </div>
-
-    
-
-    
   </div>
 </template>
 
@@ -92,19 +104,36 @@ export default {
     window.removeEventListener('plan:updated', this.fetchActivePlan)
   },
   methods: {
+    monthlyPriceCents(plan) {
+      if (plan == null) return 0
+      if (typeof plan.monthly_price === 'number') return Math.round(plan.monthly_price * 100)
+      if (typeof plan.monthly_price_cents === 'number') return Math.round(plan.monthly_price_cents)
+      return 0
+    },
     async fetchPlans() {
       try {
         // DB stores monthly_price_cents and per_min_cents as cents
-        const { data, error } = await supabase.from('plans').select('slug,name,monthly_price_cents,per_min_cents,max_concurrency,included_minutes')
-        if (!error && Array.isArray(data) && data.length) {
-          this.uiPlans = data.map(p => ({
-            slug: p.slug,
-            name: p.name,
-            monthly_price: (Number(p.monthly_price_cents) || 0) / 100,
-            per_min_cents: Number(p.per_min_cents) || 0,
-            concurrency: Number(p.max_concurrency) || 0,
-            included_minutes: Number(p.included_minutes) || 0
-          }))
+            const { data, error } = await supabase.from('plans').select('slug,name,monthly_price_cents,per_min_cents,max_concurrency,included_minutes,description,tagline,objective,minutes_expiry_days,card_required,network_priority,soft_limit_percent,has_dedicated_number,has_extra_concurrency')
+            if (!error && Array.isArray(data) && data.length) {
+              this.uiPlans = data.map(p => ({
+                slug: p.slug,
+                name: p.name,
+                monthly_price: (Number(p.monthly_price_cents) || 0) / 100,
+                monthly_price_cents: Number(p.monthly_price_cents) || 0,
+                per_min_cents: Number(p.per_min_cents) || 0,
+                concurrency: Number(p.max_concurrency) || Number(p.concurrency) || 0,
+                max_concurrency: Number(p.max_concurrency) || 0,
+                included_minutes: Number(p.included_minutes) || 0,
+                description: p.description || '',
+                tagline: p.tagline || '',
+                objective: p.objective || '',
+                minutes_expiry_days: p.minutes_expiry_days || null,
+                card_required: p.card_required === true,
+                network_priority: p.network_priority || 'standard',
+                soft_limit_percent: p.soft_limit_percent || null,
+                has_dedicated_number: p.has_dedicated_number === true,
+                has_extra_concurrency: p.has_extra_concurrency === true
+              }))
           this.uiPlans.forEach(p => { this.estimatorMinutes[p.slug] = this.defaultEstimateMinutes })
         } else {
           this.uiPlans.forEach(p => { this.estimatorMinutes[p.slug] = this.defaultEstimateMinutes })
