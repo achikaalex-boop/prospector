@@ -59,10 +59,20 @@ export default {
       } catch (e) {}
 
       try {
-        await captureOrder(token, user_id, plan_slug)
-        this.success = true
-        toast.add({ severity: 'success', summary: 'Paiement', detail: 'Paiement capturé avec succès', life: 6000 })
-        try { window.dispatchEvent(new CustomEvent('balance:updated')) } catch (e) {}
+        const resp = await captureOrder(token, user_id, plan_slug)
+        const capture = resp?.capture || resp
+        if (resp && resp.credited) {
+          this.success = true
+          toast.add({ severity: 'success', summary: 'Paiement', detail: 'Paiement capturé et solde crédité', life: 6000 })
+          try { window.dispatchEvent(new CustomEvent('balance:updated')) } catch (e) {}
+        } else if (resp && resp.credit_error) {
+          this.success = true
+          toast.add({ severity: 'warn', summary: 'Paiement', detail: 'Paiement capturé, mais le solde n\'a pas pu être crédité', life: 8000 })
+          this.message = String(resp.credit_error)
+        } else {
+          this.success = true
+          toast.add({ severity: 'warn', summary: 'Paiement', detail: 'Paiement capturé, mais le solde n\'a pas été crédité automatiquement', life: 8000 })
+        }
       } catch (e) {
         // If server indicates ORDER_NOT_APPROVED, show approval link and open it
         const status = e?.response?.status

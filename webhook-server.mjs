@@ -646,6 +646,9 @@ app.post('/api/paypal/capture', async (req, res) => {
     }
 
     // Optionally, credit the user's account here (implementation depends on schema)
+    // Track whether we successfully applied a credit row so the client can know
+    let credited = false
+    let creditError = null
     // If `user_id` not provided by client, attempt to look it up from a pending transaction record
     try {
       let resolvedUserId = user_id || null
@@ -675,7 +678,13 @@ app.post('/api/paypal/capture', async (req, res) => {
         const captureId = captureObj?.id || null;
         // Prevent duplicate crediting: fetch recent credits for this user and inspect meta for order_id/capture_id
         try {
-          const { data: recentCredits, error: recentErr } = await supabase.from('user_credits').select('*').eq('user_id', resolvedUserId).order('created_at', { ascending: false }).limit(50).catch(() => ({ data: null }))
+          let recentCredits = null
+          try {
+            const resp = await supabase.from('user_credits').select('*').eq('user_id', resolvedUserId).order('created_at', { ascending: false }).limit(50)
+            recentCredits = resp?.data || null
+          } catch (qe) {
+            recentCredits = null
+          }
           let alreadyExists = false
           if (Array.isArray(recentCredits)) {
             alreadyExists = recentCredits.some(r => {
@@ -698,9 +707,13 @@ app.post('/api/paypal/capture', async (req, res) => {
               meta: Object.assign({}, capture, { order_id: orderID, capture_id: captureId })
             };
             try {
+              // If Supabase client is present but running with ANON key (no service role), inserts may be blocked by RLS.
+              // Attempt insert and capture any error to report back to client.
               await supabase.from('user_credits').insert([creditRow]);
+              credited = true
             } catch (e) {
-              console.warn('Could not insert user_credits row:', e.message || e)
+              creditError = e.message || e
+              console.warn('Could not insert user_credits row:', creditError)
             }
           }
         } catch (e) {
@@ -734,7 +747,8 @@ app.post('/api/paypal/capture', async (req, res) => {
       console.warn('Non-fatal: could not apply credit to user or set plan:', e.message || e);
     }
 
-    return res.json(capture);
+    // Return capture payload plus a small status indicating whether we applied a credit row
+    return res.json({ capture, credited, credit_error: creditError })
   } catch (err) {
     console.error('Error capturing PayPal order (unexpected):', err?.response?.data || err.message || err);
     const status = err?.response?.status || 500;

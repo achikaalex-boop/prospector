@@ -106,12 +106,19 @@ export default {
         let user_id = null
         try { const { data: { session } } = await supabase.auth.getSession(); user_id = session?.user?.id || null } catch (e) {}
 
-        const capture = await captureOrder(this.order.id, user_id)
-        this.message = 'Paiement capturé avec succès.'
+        const resp = await captureOrder(this.order.id, user_id)
+        // server now returns { capture, credited, credit_error }
+        const capture = resp?.capture || resp
         this.order = capture
         this.approvalLink = null
-        // refresh global balance by emitting an event or navigate back
-        try { window.dispatchEvent(new CustomEvent('balance:updated')) } catch (e) {}
+        if (resp && resp.credited) {
+          this.message = 'Paiement capturé et solde crédité avec succès.'
+          try { window.dispatchEvent(new CustomEvent('balance:updated')) } catch (e) {}
+        } else if (resp && resp.credit_error) {
+          this.message = 'Paiement capturé, mais le solde n\'a pas pu être crédité: ' + String(resp.credit_error)
+        } else {
+          this.message = 'Paiement capturé, mais le solde n\'a pas été crédité automatiquement.'
+        }
         this.showRedirectModal = false
         this.$router.push('/pricing')
       } catch (e) {
