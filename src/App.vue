@@ -1,5 +1,6 @@
 <template>
   <div id="app">
+    <ConfirmDialog />
     <Menubar v-if="isAuthenticated" :model="menuItems" class="sticky top-0 z-50 shadow-md">
       <template #start>
           <router-link to="/" class="flex items-center gap-2 no-underline">
@@ -44,6 +45,11 @@ const balanceCents = ref(0)
 const balanceLoading = ref(true)
 
 const menuItems = computed(() => [
+  {
+    label: 'Account',
+    icon: 'pi pi-user',
+    command: () => router.push('/account')
+  },
   {
     label: 'Dashboard',
     icon: 'pi pi-home',

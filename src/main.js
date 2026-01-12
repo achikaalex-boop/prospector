@@ -4,6 +4,8 @@ import router from './router'
 import PrimeVue from 'primevue/config'
 import ToastService from 'primevue/toastservice'
 import Toast from 'primevue/toast'
+import ConfirmDialog from 'primevue/confirmdialog'
+import ConfirmationService from 'primevue/confirmationservice'
 import Aura from '@primevue/themes/aura'
 import 'primeicons/primeicons.css'
 import './style.css'
@@ -38,6 +40,8 @@ app.use(PrimeVue, {
   }
 })
 app.use(ToastService)
+app.use(ConfirmationService)
 app.component('Toast', Toast)
+app.component('ConfirmDialog', ConfirmDialog)
 app.mount('#app')
 

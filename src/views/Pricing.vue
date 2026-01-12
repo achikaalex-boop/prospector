@@ -39,7 +39,7 @@
 
         <div class="mt-6">
           <template v-if="p.slug !== 'free'">
-            <button @click="subscribe(p)" :class="p.slug === 'pro' ? 'bg-white text-blue-700 px-4 py-2 rounded' : 'bg-blue-600 text-white px-4 py-2 rounded'">S'abonner</button>
+            <button @click="subscribe(p)" :disabled="isPlanActive(p) || isLoading" :class="(p.slug === 'pro' ? 'bg-white text-blue-700 px-4 py-2 rounded' : 'bg-blue-600 text-white px-4 py-2 rounded') + (isPlanActive(p) || isLoading ? ' opacity-50 cursor-not-allowed' : '')">S'abonner</button>
           </template>
           <template v-else>
             <span class="px-4 py-2 border rounded text-sm text-gray-600">Plan gratuit</span>
@@ -81,9 +81,11 @@ export default {
   },
   mounted() {
     window.addEventListener('balance:updated', this.fetchBalance)
+    window.addEventListener('plan:updated', this.fetchActivePlan)
   },
   unmounted() {
     window.removeEventListener('balance:updated', this.fetchBalance)
+    window.removeEventListener('plan:updated', this.fetchActivePlan)
   },
   methods: {
     async fetchPlans() {
@@ -148,6 +150,32 @@ export default {
         let user_id = null
         try { const { data: { session } } = await supabase.auth.getSession(); user_id = session?.user?.id || null } catch (e) {}
 
+        // If user already on this plan, prevent duplicate subscribe
+        if (this.isPlanActive(plan)) {
+          this.$toast.add({ severity: 'info', summary: 'Abonnement', detail: 'Vous êtes déjà abonné à ce plan.', life: 4000 })
+          return
+        }
+
+        // If this is a downgrade while current plan is active, ask for confirmation via PrimeVue confirm
+        if (this.activePlan && this.isDowngrade(plan)) {
+          this.$confirm({
+            message: 'Vous changez vers un plan moins avantageux. Cette action peut être irréversible. Voulez-vous continuer ?',
+            header: 'Confirmer la modification',
+            icon: 'pi pi-exclamation-triangle',
+            accept: async () => { await this.performSubscribe(plan, user_id) },
+            reject: () => { /* no-op */ }
+          })
+        } else {
+          await this.performSubscribe(plan, user_id)
+        }
+      } catch (e) {
+        console.error('subscribe error', e)
+        this.$toast.add({ severity: 'error', summary: 'Erreur', detail: 'Erreur lors de la création de la souscription: ' + (e?.response?.data?.error || e.message || e), life: 8000 })
+      } finally { this.isLoading = false }
+    },
+
+    async performSubscribe(plan, user_id) {
+      try {
         const amountCents = Math.round(plan.monthly_price * 100)
         const resp = await axios.post('/api/subscribe', { plan_slug: plan.slug, amount_cents: amountCents, user_id })
         const order = resp.data
@@ -162,9 +190,27 @@ export default {
           window.location.href = this.approvalLink
         }
       } catch (e) {
-        console.error('subscribe error', e)
-        this.$toast.add({ severity: 'error', summary: 'Erreur', detail: 'Erreur lors de la création de la souscription: ' + (e?.response?.data?.error || e.message || e), life: 8000 })
-      } finally { this.isLoading = false }
+        throw e
+      }
+    },
+    isPlanActive(plan) {
+      try {
+        if (!this.activePlan) return false
+        const slug = this.activePlan.plan_slug || this.activePlan.slug || null
+        return slug && slug === plan.slug
+      } catch (e) { return false }
+    },
+    isDowngrade(targetPlan) {
+      try {
+        if (!this.activePlan) return false
+        const currentSlug = this.activePlan.plan_slug || this.activePlan.slug || null
+        if (!currentSlug) return false
+        const current = this.uiPlans.find(p => p.slug === currentSlug)
+        const target = this.uiPlans.find(p => p.slug === targetPlan.slug)
+        if (!current || !target) return false
+        // consider downgrade when target monthly price is lower than current
+        return Number(target.monthly_price || 0) < Number(current.monthly_price || 0)
+      } catch (e) { return false }
     },
     
     estimateCostCents(plan, minutes) {
