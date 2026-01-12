@@ -63,9 +63,9 @@ export default {
   data() {
     return {
       uiPlans: [
-        { slug: 'free', name: 'Starter', monthly_price: 0.00, per_min_cents: 17, concurrency: 5, included_minutes: 20 },
-        { slug: 'standard', name: 'Standard', monthly_price: 19.00, per_min_cents: 15, concurrency: 10, included_minutes: 200 },
-        { slug: 'pro', name: 'Pro', monthly_price: 49.00, per_min_cents: 12, concurrency: 20, included_minutes: 1000 }
+        { slug: 'free', name: 'Starter', monthly_price: 0.00, per_min_cents: 30, concurrency: 5, included_minutes: 20 },
+        { slug: 'standard', name: 'Standard', monthly_price: 19.00, per_min_cents: 30, concurrency: 10, included_minutes: 200 },
+        { slug: 'pro', name: 'Pro', monthly_price: 49.00, per_min_cents: 30, concurrency: 20, included_minutes: 1000 }
       ],
       activePlan: null,
       balanceCents: 0,

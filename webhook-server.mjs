@@ -39,8 +39,9 @@ app.post('/api/preview-cost', async (req, res) => {
     const avgCallSec = Number(body.estimated_avg_call_seconds) || 60
     const planSlug = body.plan_slug || 'starter'
 
-    // Basic pricing rules: provider cost $0.17/min -> 17 cents per minute
-    const providerCentsPerMin = 17
+    // Basic pricing rules: provider cost $0.15/min -> 15 cents per minute
+    // We apply a conservative margin to avoid selling at a loss
+    const providerCentsPerMin = 15
     const minutes = Math.ceil((contactsCount * avgCallSec) / 60)
 
     // get plan
@@ -49,8 +50,8 @@ app.post('/api/preview-cost', async (req, res) => {
     if (!planErr && plans) plan = plans
 
     // Determine per-minute price for the plan (simple model)
-    // default: add 30% margin
-    const margin = 1.30
+    // default: apply a conservative margin (2x provider cost)
+    const margin = 2.0
     const perMinCents = Math.ceil(providerCentsPerMin * margin)
 
     const totalCents = perMinCents * minutes
@@ -309,6 +310,37 @@ app.post('/api/subscribe', async (req, res) => {
   }
 })
 
+// Admin / server endpoint to change a user's plan immediately (requires SERVICE_ROLE key)
+app.post('/api/change-plan', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Supabase not configured' })
+    const { user_id, plan_slug, expires_at } = req.body || {}
+    if (!user_id || !plan_slug) return res.status(400).json({ error: 'user_id and plan_slug required' })
+    try {
+      const startsAt = new Date().toISOString()
+      const expires = expires_at || new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString()
+      // upsert: replace existing plan row or insert
+      let existing = null
+      try {
+        const resp = await supabase.from('user_plans').select('*').eq('user_id', user_id).limit(1).single()
+        existing = resp?.data || null
+      } catch (e) { existing = null }
+      if (existing) {
+        await supabase.from('user_plans').update({ plan_slug, started_at: startsAt, expires_at: expires }).eq('id', existing.id)
+      } else {
+        await supabase.from('user_plans').insert([{ user_id, plan_slug, started_at: startsAt, expires_at: expires }])
+      }
+      return res.json({ ok: true })
+    } catch (e) {
+      console.error('change-plan error:', e)
+      return res.status(500).json({ error: e?.message || e })
+    }
+  } catch (e) {
+    console.error('Error in /api/change-plan:', e)
+    return res.status(500).json({ error: 'internal' })
+  }
+})
+
 // Create campaign via server: checks billing/plan before inserting and enqueuing batch
 app.post('/api/create-campaign', async (req, res) => {
   try {
@@ -382,6 +414,9 @@ app.post('/api/create-campaign', async (req, res) => {
     }
 
     // Default plan values if none
+    // Default plan values if none
+    // Provider cost set to $0.15/min -> 15 cents per minute
+    // Use conservative margin to avoid selling at or below cost
     const providerCentsPerMin = 15
     const margin = 2.0
     const perMinCents = Math.ceil(providerCentsPerMin * margin)
