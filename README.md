@@ -21,6 +21,18 @@ Le projet est composé de deux parties principales :
 1. **Frontend Vue.js** : Interface utilisateur pour créer et gérer les campagnes
 2. **Backend Express** : Serveur webhook pour recevoir les événements Retell AI et servir le frontend
 
+## 💳 Billing, Plans & Limits (changements récents)
+
+- Le plan `free` est maintenant seedé dans la base avec des limites explicites :
+   - 10 contacts par campagne
+   - 1 concurrent call (max_concurrency)
+   - 5 campagnes par mois (monthly_campaign_limit)
+- Ces limites sont appliquées côté serveur lors de la création de campagne (`/api/create-campaign`) et côté client dans l'UI de création de campagne (bouton désactivé si quota atteint).
+- Le endpoint `/api/subscribe` normalise désormais la réponse PayPal : la réponse contient toujours `links` et un champ `approve_link` (si PayPal renvoie l'URL d'approbation). Le frontend redirige désormais directement vers ce lien pour autorisation.
+- UI: sur la page `Pricing` le bloc de `Solde` a été retiré (le solde reste visible dans l'en-tête). Le bouton "S'abonner" est masqué pour le plan gratuit.
+
+Ces changements forcent l'upgrade vers un plan payant pour les utilisateurs qui dépassent les quotas du plan gratuit tout en gardant une UX claire côté client.
+
 ## 📋 Prérequis
 
 - **Node.js** 18+ et npm
