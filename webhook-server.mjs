@@ -74,6 +74,9 @@ const supabase = supabaseUrl && supabaseKey
   ? createClient(supabaseUrl, supabaseKey)
   : null;
 
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').map(s => s.trim()).filter(Boolean)
+const ADMIN_SECRET = process.env.ADMIN_SECRET || null
+
 if (supabase) {
   if (serviceRoleKey) {
     console.log('Supabase client: using SERVICE_ROLE key (server, RLS bypass)');
@@ -105,6 +108,30 @@ async function getUserPlanSlug(userId) {
   } catch (e) {
     return 'free'
   }
+}
+
+async function isRequestAdmin(req) {
+  // 1) allow if server running with service role key
+  if (serviceRoleKey) return true
+  // 2) allow if admin secret header present
+  try {
+    const secret = req.headers['x-admin-secret'] || req.headers['x_admin_secret'] || null
+    if (secret && ADMIN_SECRET && secret === ADMIN_SECRET) return true
+  } catch (e) {}
+  // 3) check authorization bearer token and match email against ADMIN_EMAILS
+  try {
+    const auth = req.headers['authorization'] || req.headers['Authorization'] || null
+    if (!auth) return false
+    const token = String(auth).split(' ')[1]
+    if (!token) return false
+    // Use Supabase auth to resolve token
+    const { data, error } = await supabase.auth.getUser(token)
+    const user = data?.user || null
+    if (!user) return false
+    const email = (user.email || '').toLowerCase()
+    if (ADMIN_EMAILS.some(e => e.toLowerCase() === email)) return true
+  } catch (e) {}
+  return false
 }
 
 function planIsFree(slug) {
@@ -337,6 +364,67 @@ app.post('/api/change-plan', async (req, res) => {
     }
   } catch (e) {
     console.error('Error in /api/change-plan:', e)
+    return res.status(500).json({ error: 'internal' })
+  }
+})
+
+// Admin endpoint: upsert a plan (requires SERVICE_ROLE key)
+app.post('/api/admin/plan-upsert', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Supabase not configured' })
+    const ok = await isRequestAdmin(req)
+    if (!ok) return res.status(403).json({ error: 'admin_only' })
+    const body = req.body || {}
+    const allowed = ['slug','name','monthly_price_cents','included_minutes','per_min_cents','max_contacts_per_campaign','monthly_campaign_limit','max_concurrency','description']
+    const plan = {}
+    for (const k of allowed) if (k in body) plan[k] = body[k]
+    if (!plan.slug) return res.status(400).json({ error: 'slug required' })
+    try {
+        const { data, error } = await supabase.from('plans').upsert(plan, { onConflict: 'slug' })
+      if (error) return res.status(500).json({ error })
+      return res.json({ ok: true, plan: data })
+    } catch (e) {
+      console.error('plan-upsert error:', e)
+      return res.status(500).json({ error: e?.message || e })
+    }
+  } catch (e) {
+    console.error('Error in /api/admin/plan-upsert:', e)
+    return res.status(500).json({ error: 'internal' })
+  }
+})
+
+// Admin check endpoint
+app.get('/api/admin/check', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Supabase not configured' })
+    const ok = await isRequestAdmin(req)
+    if (!ok) return res.status(403).json({ ok: false, error: 'admin_only' })
+    return res.json({ ok: true })
+  } catch (e) {
+    return res.status(500).json({ error: 'internal' })
+  }
+})
+
+// Admin endpoint: grant addon to user
+app.post('/api/admin/grant-addon', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Supabase not configured' })
+    const ok = await isRequestAdmin(req)
+    if (!ok) return res.status(403).json({ error: 'admin_only' })
+    const { user_id, addon_key, value } = req.body || {}
+    if (!user_id || !addon_key) return res.status(400).json({ error: 'user_id and addon_key required' })
+    try {
+      // upsert into user_addons
+      const row = { user_id, addon_key, value: value || null }
+      const { data, error } = await supabase.from('user_addons').upsert(row, { onConflict: ['user_id','addon_key'] })
+      if (error) return res.status(500).json({ error })
+      return res.json({ ok: true, addon: data })
+    } catch (e) {
+      console.error('grant-addon error:', e)
+      return res.status(500).json({ error: e?.message || e })
+    }
+  } catch (e) {
+    console.error('Error in /api/admin/grant-addon:', e)
     return res.status(500).json({ error: 'internal' })
   }
 })

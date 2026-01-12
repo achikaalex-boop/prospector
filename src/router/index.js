@@ -58,6 +58,13 @@ const routes = [
   }
   ,
   {
+    path: '/admin/plans',
+    name: 'AdminPlans',
+    component: () => import('../views/Admin/Plans.vue'),
+    meta: { requiresAuth: true }
+  }
+  ,
+  {
     path: '/topup/complete',
     name: 'TopUpComplete',
     component: () => import('../views/TopUpComplete.vue')

@@ -47,6 +47,22 @@
       </div>
     </div>
 
+    <div class="mt-4 bg-white p-4 rounded shadow max-w-3xl mx-auto">
+      <h3 class="font-semibold mb-2">Add-ons activés</h3>
+      <div v-if="addons.length === 0" class="text-sm text-gray-500">Aucun add-on activé.</div>
+      <ul v-else class="text-sm">
+        <li v-for="a in addons" :key="a.addon_key" class="py-2 border-b">
+          <div class="flex justify-between">
+            <div>
+              <div class="font-medium">{{ a.addon_key }}</div>
+              <div class="text-xs text-gray-500">Activé: {{ formatDate(a.created_at) }}</div>
+            </div>
+            <div class="text-sm text-gray-700">{{ a.value ? JSON.stringify(a.value) : '' }}</div>
+          </div>
+        </li>
+      </ul>
+    </div>
+
   </div>
 </template>
 
@@ -60,7 +76,8 @@ export default {
       balanceCents: 0,
       balanceLoading: true,
       transactions: [],
-      loadingTransactions: true
+      loadingTransactions: true,
+      addons: []
     }
   },
   computed: {
@@ -76,7 +93,7 @@ export default {
     }
   },
   async created() {
-    await Promise.all([this.fetchPlan(), this.fetchBalance(), this.fetchTransactions()])
+    await Promise.all([this.fetchPlan(), this.fetchBalance(), this.fetchTransactions(), this.fetchAddons()])
   },
   methods: {
     formatDate(d) {
@@ -132,6 +149,17 @@ export default {
       } catch (e) {
         console.error('fetchTransactions error', e)
       } finally { this.loadingTransactions = false }
+    },
+    async fetchAddons() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        const userId = session?.user?.id || null
+        if (!userId) return
+        const { data, error } = await supabase.from('user_addons').select('addon_key,value,created_at').eq('user_id', userId)
+        if (!error && Array.isArray(data)) this.addons = data
+      } catch (e) {
+        console.error('fetchAddons error', e)
+      }
     },
     goToPricing() { this.$router.push('/pricing') }
   }

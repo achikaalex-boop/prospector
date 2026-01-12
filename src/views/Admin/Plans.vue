@@ -1,0 +1,121 @@
+<template>
+  <div class="p-6 max-w-4xl mx-auto">
+    <h1 class="text-2xl font-bold mb-4">Admin — Plans</h1>
+    <div v-if="loading">Chargement...</div>
+    <div v-else>
+        <div class="mb-4 bg-white p-4 rounded shadow">
+          <h3 class="font-semibold mb-2">Accorder un add-on à un utilisateur</h3>
+          <div class="grid grid-cols-3 gap-2">
+            <input v-model="addonForm.user_id" placeholder="user_id" class="p-2 border rounded col-span-1" />
+            <select v-model="addonForm.addon_key" class="p-2 border rounded col-span-1">
+              <option value="dedicated_number">dedicated_number</option>
+              <option value="extra_concurrency">extra_concurrency</option>
+            </select>
+            <input v-model="addonForm.value" placeholder="value (json)" class="p-2 border rounded col-span-1" />
+          </div>
+          <div class="mt-2">
+            <button @click="grantAddon" class="bg-blue-600 text-white px-3 py-1 rounded">Accorder add-on</button>
+          </div>
+        </div>
+      <div v-for="p in plans" :key="p.slug" class="mb-4 bg-white p-4 rounded shadow">
+        <div class="flex justify-between items-start">
+          <div>
+            <div class="text-lg font-semibold">{{ p.name }} <span class="text-sm text-gray-500">({{ p.slug }})</span></div>
+            <div class="text-sm text-gray-600">{{ p.description }}</div>
+          </div>
+          <div class="w-64">
+            <label class="text-xs">Prix / mois (USD)</label>
+            <input type="number" v-model.number="editable[p.slug].monthly_price" class="w-full p-2 border rounded" />
+            <label class="text-xs">Minutes incluses</label>
+            <input type="number" v-model.number="editable[p.slug].included_minutes" class="w-full p-2 border rounded" />
+            <label class="text-xs">Overage (cents/min)</label>
+            <input type="number" v-model.number="editable[p.slug].per_min_cents" class="w-full p-2 border rounded" />
+            <div class="flex gap-2 mt-2">
+              <button @click="save(p.slug)" class="bg-green-600 text-white px-3 py-1 rounded">Enregistrer</button>
+              <button @click="reset(p.slug)" class="bg-gray-200 px-3 py-1 rounded">Annuler</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+import axios from 'axios'
+import { supabase } from '../../lib/supabase'
+export default {
+  name: 'AdminPlans',
+  data() { return { plans: [], loading: true, editable: {} } },
+  async created() {
+    // ensure admin access
+    try {
+      const resp = await axios.get('/api/admin/check')
+      if (!resp.data || !resp.data.ok) {
+        this.$toast.add({ severity: 'warn', summary: 'Accès refusé', detail: 'Accès administrateur requis', life: 4000 })
+        this.$router.push('/')
+        return
+      }
+    } catch (e) {
+      this.$toast.add({ severity: 'warn', summary: 'Accès refusé', detail: 'Accès administrateur requis', life: 4000 })
+      this.$router.push('/')
+      return
+    }
+    await this.load()
+    this.addonForm = { user_id: '', addon_key: 'dedicated_number', value: '' }
+  },
+  methods: {
+    async load() {
+      this.loading = true
+      try {
+        const { data, error } = await supabase.from('plans').select('*').order('monthly_price_cents', { ascending: true })
+        if (!error && Array.isArray(data)) {
+          this.plans = data
+          data.forEach(p => {
+            this.editable[p.slug] = {
+              monthly_price: (p.monthly_price_cents || 0) / 100,
+              included_minutes: p.included_minutes || 0,
+              per_min_cents: p.per_min_cents || 0
+            }
+          })
+        }
+      } catch (e) { console.error(e) } finally { this.loading = false }
+    },
+    reset(slug) { if (this.plans) {
+      const p = this.plans.find(x => x.slug === slug)
+      if (p) this.editable[slug] = { monthly_price: (p.monthly_price_cents || 0)/100, included_minutes: p.included_minutes||0, per_min_cents: p.per_min_cents||0 }
+    } },
+    async save(slug) {
+      try {
+        const ed = this.editable[slug]
+        const body = {
+          slug,
+          monthly_price_cents: Math.round(Number(ed.monthly_price || 0) * 100),
+          included_minutes: Number(ed.included_minutes || 0),
+          per_min_cents: Number(ed.per_min_cents || 0)
+        }
+        const resp = await axios.post('/api/admin/plan-upsert', body)
+        if (resp.data && resp.data.ok) {
+          this.$toast.add({ severity: 'success', summary: 'Enregistré', detail: 'Plan mis à jour', life: 4000 })
+          await this.load()
+        } else {
+          this.$toast.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de mettre à jour le plan', life: 6000 })
+        }
+      } catch (e) { console.error(e); this.$toast.add({ severity: 'error', summary: 'Erreur', detail: e?.response?.data?.error || e.message || String(e), life: 8000 }) }
+    }
+    ,
+    async grantAddon() {
+      try {
+        const body = { user_id: this.addonForm.user_id, addon_key: this.addonForm.addon_key, value: this.addonForm.value ? JSON.parse(this.addonForm.value) : null }
+        const resp = await axios.post('/api/admin/grant-addon', body)
+        if (resp.data && resp.data.ok) {
+          this.$toast.add({ severity: 'success', summary: 'OK', detail: 'Add-on accordé', life: 4000 })
+          this.addonForm = { user_id: '', addon_key: 'dedicated_number', value: '' }
+        } else {
+          this.$toast.add({ severity: 'error', summary: 'Erreur', detail: 'Échec', life: 6000 })
+        }
+      } catch (e) { console.error(e); this.$toast.add({ severity: 'error', summary: 'Erreur', detail: e?.response?.data?.error || e.message || String(e), life: 8000 }) }
+    }
+  }
+}
+</script>

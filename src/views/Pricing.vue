@@ -13,13 +13,14 @@
           </div>
         </div>
         <div class="mt-4">
-          <div class="text-3xl font-bold">${{ p.monthly_price.toFixed(2) }}</div>
-          <div class="text-sm text-gray-200/80">/ mois</div>
+           <div class="text-3xl font-bold">${{ (p.monthly_price || p.monthly_price_cents/100).toFixed(2) }}</div>
+           <div class="text-sm text-gray-200/80">/ mois</div>
         </div>
         <ul class="mt-4 text-sm">
-          <li>Concurrency: <strong>{{ p.concurrency }}</strong></li>
-          <li>Coût par minute: <strong>{{ displayMoney(p.per_min_cents) }} USD</strong></li>
-          <li v-if="p.included_minutes">Minutes inclues: <strong>{{ p.included_minutes }}</strong></li>
+           <li>Concurrency: <strong>{{ p.max_concurrency || p.concurrency }}</strong></li>
+           <li>Coût inclus par minute: <strong>{{ displayMoney((p.per_min_cents || p.per_min_cents)/1) }} USD</strong></li>
+           <li v-if="(p.included_minutes || p.included_minutes === 0)">Minutes inclues: <strong>{{ p.included_minutes }}</strong></li>
+           <li v-if="p.description" class="mt-2 text-xs text-gray-600">{{ p.description }}</li>
         </ul>
 
           <div class="mt-4 bg-gray-50 p-3 rounded text-black">
@@ -39,7 +40,10 @@
 
         <div class="mt-6">
           <template v-if="p.slug !== 'free'">
-            <button @click="subscribe(p)" :disabled="isPlanActive(p) || isLoading" :class="(p.slug === 'pro' ? 'bg-white text-blue-700 px-4 py-2 rounded' : 'bg-blue-600 text-white px-4 py-2 rounded') + (isPlanActive(p) || isLoading ? ' opacity-50 cursor-not-allowed' : '')">S'abonner</button>
+            <div class="flex items-center gap-2">
+              <button @click="subscribe(p)" :disabled="isPlanActive(p) || isLoading" :class="(p.slug === 'pro' ? 'bg-white text-blue-700 px-4 py-2 rounded' : 'bg-blue-600 text-white px-4 py-2 rounded') + (isPlanActive(p) || isLoading ? ' opacity-50 cursor-not-allowed' : '')">{{ isPlanActive(p) ? 'Abonné' : 'S\'abonner' }}</button>
+              <button v-if="p.slug !== 'free'" @click="openAddons(p)" class="px-3 py-2 border rounded text-sm">Add-ons</button>
+            </div>
           </template>
           <template v-else>
             <span class="px-4 py-2 border rounded text-sm text-gray-600">Plan gratuit</span>
@@ -226,6 +230,11 @@ export default {
       const billable = Math.max(0, m - included)
       const billableCents = this.estimateCostCents(plan, billable)
       return Math.max(0, billableCents - this.balanceCents)
+    }
+    ,
+    openAddons(plan) {
+      // simple placeholder: open pricing page anchor for add-ons or show toast
+      this.$toast.add({ severity: 'info', summary: 'Add-ons', detail: 'Options disponibles: numéro dédié, concurrency add-on. Contactez le support pour activer.', life: 6000 })
     }
   }
 }
