@@ -805,7 +805,8 @@ app.post('/api/paypal/capture', async (req, res) => {
     }
 
     // Return capture payload plus a small status indicating whether we applied a credit row
-    return res.json({ capture, credited, credit_error: creditError, deduction_applied: deductionApplied, deduction_error: deductionError, plan_updated: planUpdated })
+    // Include any plan update error to help debug RLS / permission issues
+    return res.json({ capture, credited, credit_error: creditError, deduction_applied: deductionApplied, deduction_error: deductionError, plan_updated: planUpdated, plan_update_error: planUpdateError || null })
   } catch (err) {
     console.error('Error capturing PayPal order (unexpected):', err?.response?.data || err.message || err);
     const status = err?.response?.status || 500;
@@ -962,10 +963,17 @@ app.post('/api/paypal/webhook', async (req, res) => {
                     const resp = await supabase.from('user_plans').select('*').eq('user_id', resolvedUserId).limit(1).single()
                     existing = resp?.data || null
                   } catch (e) { existing = null }
-                  if (existing) {
-                    await supabase.from('user_plans').update({ plan_slug: planSlug, started_at: startsAt, expires_at: expiresAt }).eq('id', existing.id)
-                  } else {
-                    await supabase.from('user_plans').insert([{ user_id: resolvedUserId, plan_slug: planSlug, started_at: startsAt, expires_at: expiresAt }])
+                  try {
+                    if (existing) {
+                      await supabase.from('user_plans').update({ plan_slug: planSlug, started_at: startsAt, expires_at: expiresAt }).eq('id', existing.id)
+                      console.log('Updated user_plans for user', resolvedUserId, '→', planSlug)
+                    } else {
+                      await supabase.from('user_plans').insert([{ user_id: resolvedUserId, plan_slug: planSlug, started_at: startsAt, expires_at: expiresAt }])
+                      console.log('Inserted user_plans for user', resolvedUserId, '→', planSlug)
+                    }
+                  } catch (e) {
+                    console.warn('Could not update/insert user_plans from webhook for user', resolvedUserId, 'plan', planSlug, e?.message || e)
+                    throw e
                   }
                 }
               } catch (e) {
