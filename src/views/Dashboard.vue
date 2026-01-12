@@ -258,17 +258,52 @@
       </Dialog>
 
       <!-- Raw Result Dialog -->
-      <Dialog v-model:visible="showResultDialog" header="Payload brut" :style="{ width: '90vw', maxWidth: '800px' }" :modal="true">
-        <div v-if="selectedResult">
-          <h4 class="font-semibold mb-2">Résumé</h4>
-          <p><strong>Contact:</strong> {{ selectedResult.contact_name || selectedResult.contact_phone }}</p>
-          <p><strong>Statut:</strong> {{ selectedResult.status }}</p>
-          <p><strong>Durée:</strong> {{ selectedResult.call_duration }}s</p>
-          <Divider />
-          <h4 class="font-semibold mb-2">Payload JSON</h4>
-          <pre class="whitespace-pre-wrap bg-gray-100 p-3 rounded text-sm overflow-auto" style="max-height:60vh">{{ prettyJson(selectedResult.raw_payload) }}</pre>
-        </div>
-      </Dialog>
+      <Dialog v-model:visible="showResultDialog" header="Payload brut" :style="{ width: '90vw', maxWidth: '900px' }" :modal="true">
+            <div v-if="selectedResult">
+              <div class="flex items-start justify-between gap-4">
+                <div>
+                  <h4 class="font-semibold mb-2">Résumé</h4>
+                  <p><strong>Contact:</strong> {{ selectedResult.contact_name || selectedResult.contact_phone }}</p>
+                  <p><strong>Statut:</strong> {{ selectedResult.status }}</p>
+                  <p><strong>Durée:</strong> {{ selectedResult.call_duration }}s</p>
+                </div>
+                <div class="flex items-center gap-2">
+                  <Button label="Copier JSON" icon="pi pi-copy" class="p-button-sm" @click="copyRawJson" />
+                  <Button :label="showRawJson ? 'Masquer JSON' : 'Afficher JSON'" class="p-button-sm" @click="showRawJson = !showRawJson" />
+                </div>
+              </div>
+
+              <Divider />
+
+              <!-- Conversation render -->
+              <div>
+                <h4 class="font-semibold mb-2">Conversation</h4>
+                <div v-if="hasTranscriptionError" class="mb-2">
+                  <Message severity="warn" text="Problème détecté lors de la transcription — le rendu peut être incomplet." />
+                </div>
+                <div v-if="conversation && conversation.length">
+                  <div class="space-y-3 max-h-64 overflow-auto p-2 bg-white rounded border">
+                    <div v-for="(turn, idx) in conversation" :key="idx" class="p-2 rounded">
+                      <div class="flex items-center gap-2 mb-1">
+                        <Tag :value="turn.speaker" severity="secondary" />
+                        <span class="text-sm text-gray-600">{{ turn.time || '' }}</span>
+                      </div>
+                      <div class="text-sm text-gray-800">{{ turn.text }}</div>
+                    </div>
+                  </div>
+                </div>
+                <div v-else class="text-sm text-gray-600">Aucun contenu conversationnel détecté. Voir le JSON brut pour plus de détails.</div>
+              </div>
+
+              <Divider />
+
+              <!-- Raw JSON -->
+              <div v-if="showRawJson">
+                <h4 class="font-semibold mb-2">Payload JSON</h4>
+                <pre class="whitespace-pre-wrap bg-gray-100 p-3 rounded text-sm overflow-auto" style="max-height:50vh">{{ prettyJson(selectedResult.raw_payload) }}</pre>
+              </div>
+            </div>
+          </Dialog>
     </div>
   </div>
 </template>
@@ -296,6 +331,9 @@ const error = ref('')
 const userPlan = ref(null)
 const showResultDialog = ref(false)
 const selectedResult = ref(null)
+const showRawJson = ref(true)
+const conversation = ref([])
+const hasTranscriptionError = ref(false)
 
 const loadCampaigns = async () => {
   try {
@@ -394,7 +432,48 @@ const viewDetails = async (campaign) => {
 
 const viewRawResult = (result) => {
   selectedResult.value = result
+  // build conversation view and detect transcription issues
+  try {
+    const raw = result.raw_payload || {}
+    // heuristics: look for call_analysis.turns, call_analysis.segments, or transcript
+    const conv = []
+    if (raw.call_analysis && Array.isArray(raw.call_analysis.turns) && raw.call_analysis.turns.length) {
+      for (const t of raw.call_analysis.turns) {
+        conv.push({ speaker: t.speaker || (t.role || 'Speaker'), text: t.text || t.transcript || '', time: t.start_ts || null })
+      }
+    } else if (raw.call_analysis && Array.isArray(raw.call_analysis.segments) && raw.call_analysis.segments.length) {
+      for (const s of raw.call_analysis.segments) {
+        conv.push({ speaker: s.speaker || s.role || 'Speaker', text: s.text || s.transcript || '', time: s.start_ts || null })
+      }
+    } else if (raw.transcript && typeof raw.transcript === 'string') {
+      conv.push({ speaker: 'Transcription', text: raw.transcript })
+    } else if (raw.call_analysis && raw.call_analysis.call_summary) {
+      conv.push({ speaker: 'Résumé', text: raw.call_analysis.call_summary })
+    }
+
+    conversation.value = conv
+
+    // transcription error detection heuristics
+    hasTranscriptionError.value = Boolean(
+      raw.call_analysis && raw.call_analysis.transcription_error ||
+      !raw.transcript && !(raw.call_analysis && (raw.call_analysis.turns || raw.call_analysis.segments || raw.call_analysis.call_summary))
+    )
+  } catch (e) {
+    conversation.value = []
+    hasTranscriptionError.value = false
+  }
+
   showResultDialog.value = true
+}
+
+const copyRawJson = async () => {
+  try {
+    const txt = prettyJson(selectedResult.value?.raw_payload)
+    await navigator.clipboard.writeText(txt)
+    alert('JSON copié dans le presse-papiers')
+  } catch (e) {
+    alert('Impossible de copier le JSON: ' + (e?.message || e))
+  }
 }
 
 const loadUserPlan = async () => {

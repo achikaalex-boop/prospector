@@ -215,8 +215,41 @@ app.post('/api/paypal/create-order', async (req, res) => {
       console.warn('Non-fatal: could not write pending transaction to Supabase:', e.message || e);
     }
 
-    // Return the order data to the client (client will redirect to approval link)
-    return res.json(order);
+    // Ensure the PayPal order contains an approval link. If not, fetch the order again
+    let approvalLink = null
+    if (order && Array.isArray(order.links)) {
+      const l = order.links.find(x => x.rel === 'approve')
+      if (l && l.href) approvalLink = l.href
+    }
+    if (!approvalLink && order && order.id) {
+      try {
+        const fresh = await getPayPalOrder(order.id)
+        if (fresh && Array.isArray(fresh.links)) {
+          const l2 = fresh.links.find(x => x.rel === 'approve')
+          if (l2 && l2.href) approvalLink = l2.href
+          // merge fresh links/status into order for returning to client
+          order.links = fresh.links || order.links
+          order.status = fresh.status || order.status
+        }
+      } catch (e) {
+        console.warn('Could not refetch PayPal order for approval link:', e?.message || e)
+      }
+    }
+
+    if (!approvalLink) {
+      console.error('No approval link found in PayPal order', { orderId: order?.id })
+      return res.status(500).json({ error: 'No approval link returned by PayPal', raw: order })
+    }
+
+    const normalized = {
+      id: order.id,
+      status: order.status,
+      links: order.links || [],
+      approve_link: approvalLink,
+      raw: order
+    }
+
+    return res.json(normalized)
   } catch (err) {
     console.error('Error creating PayPal order:', err?.response?.data || err.message || err);
     const status = err?.response?.status || 500;

@@ -18,27 +18,32 @@
         </div>
         <ul class="mt-4 text-sm">
           <li>Concurrency: <strong>{{ p.concurrency }}</strong></li>
-          <li>Per-minute estimé: <strong>{{ p.per_min_cents }}¢</strong></li>
+          <li>Coût par minute: <strong>{{ displayMoney(p.per_min_cents) }} USD</strong></li>
           <li v-if="p.included_minutes">Minutes inclues: <strong>{{ p.included_minutes }}</strong></li>
         </ul>
 
-        <div class="mt-4 bg-gray-50 p-3 rounded text-black">
-          <label class="text-sm">Estimation d'appel (minutes)</label>
-          <div class="mt-2 flex items-center gap-2">
-            <input type="number" min="0" :value="estimatorMinutes[p.slug]" @input="(e)=>{ this.estimatorMinutes[p.slug] = Number(e.target.value) }" class="w-24 p-2 border rounded" />
-            <div class="text-sm">Coût estimé: <strong>{{ displayMoney(estimateCostCents(p, estimatorMinutes[p.slug]||defaultEstimateMinutes)) }} USD</strong></div>
-          </div>
-          <div class="mt-2 text-sm text-gray-700">
-            <div v-if="balanceLoading">Chargement du solde...</div>
-            <div v-else>
-              Solde: <strong>{{ displayMoney(balanceCents) }} USD</strong>
-              <span v-if="needsTopupCents(p, estimatorMinutes[p.slug]||defaultEstimateMinutes) > 0" class="ml-2 text-red-600">(Top-up requis: {{ displayMoney(needsTopupCents(p, estimatorMinutes[p.slug]||defaultEstimateMinutes)) }} USD)</span>
+          <div class="mt-4 bg-gray-50 p-3 rounded text-black">
+            <label class="text-sm">Estimation d'appel (minutes)</label>
+            <div class="mt-2 flex items-center gap-2">
+              <input type="number" min="0" :value="estimatorMinutes[p.slug]" @input="(e)=>{ this.estimatorMinutes[p.slug] = Number(e.target.value) }" class="w-24 p-2 border rounded" />
+              <div class="text-sm">Coût estimé: <strong>{{ displayMoney(estimateCostCents(p, estimatorMinutes[p.slug]||defaultEstimateMinutes)) }} USD</strong></div>
+            </div>
+            <div class="mt-2 text-sm text-gray-700">
+              <div v-if="balanceLoading">Chargement du solde...</div>
+              <div v-else>
+                <span v-if="needsTopupCents(p, estimatorMinutes[p.slug]||defaultEstimateMinutes) > 0" class="text-red-600">Top-up requis: {{ displayMoney(needsTopupCents(p, estimatorMinutes[p.slug]||defaultEstimateMinutes)) }} USD</span>
+                <span v-else class="text-green-600">Solde suffisant pour l'estimation</span>
+              </div>
             </div>
           </div>
-        </div>
 
         <div class="mt-6">
-          <button @click="subscribe(p)" :class="p.slug === 'pro' ? 'bg-white text-blue-700 px-4 py-2 rounded' : 'bg-blue-600 text-white px-4 py-2 rounded'">S'abonner</button>
+          <template v-if="p.slug !== 'free'">
+            <button @click="subscribe(p)" :class="p.slug === 'pro' ? 'bg-white text-blue-700 px-4 py-2 rounded' : 'bg-blue-600 text-white px-4 py-2 rounded'">S'abonner</button>
+          </template>
+          <template v-else>
+            <span class="px-4 py-2 border rounded text-sm text-gray-600">Plan gratuit</span>
+          </template>
         </div>
       </div>
     </div>
@@ -46,21 +51,10 @@
     <div class="mt-6">
       <h2 class="text-xl font-semibold mb-2">Solde</h2>
       <div v-if="balanceLoading">Chargement du solde...</div>
-      <div v-else class="text-lg">{{ (balanceCents/100).toFixed(2) }} USD</div>
+      <div v-else class="text-lg">{{ displayMoney(balanceCents) }} USD</div>
     </div>
 
-    <!-- Subscription redirect modal -->
-    <div v-if="showRedirectModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-      <div class="bg-white rounded-lg p-6 w-full max-w-md">
-        <h3 class="text-lg font-semibold mb-2">Confirmer la souscription</h3>
-        <p class="text-sm text-gray-700 mb-4">Vous allez être redirigé vers PayPal pour autoriser le paiement. Une fois approuvé, vous serez redirigé vers la page de confirmation.</p>
-        <div class="flex items-center gap-3">
-          <button @click="openApprovalFromModal" class="bg-blue-600 text-white px-4 py-2 rounded">Ouvrir PayPal</button>
-          <button @click="cancelRedirect" class="px-4 py-2 border rounded">Annuler</button>
-          <div v-if="isLoading" class="ml-auto text-sm text-gray-600">Chargement...</div>
-        </div>
-      </div>
-    </div>
+    
   </div>
 </template>
 
@@ -81,7 +75,6 @@ export default {
       balanceCents: 0,
       balanceLoading: true,
       approvalLink: null,
-      showRedirectModal: false,
       isLoading: false,
       estimatorMinutes: {},
       defaultEstimateMinutes: 10
@@ -99,14 +92,15 @@ export default {
   methods: {
     async fetchPlans() {
       try {
-        const { data, error } = await supabase.from('plans').select('slug,name,monthly_price,per_min_cents,concurrency,included_minutes')
+        // DB stores monthly_price_cents and per_min_cents as cents
+        const { data, error } = await supabase.from('plans').select('slug,name,monthly_price_cents,per_min_cents,max_concurrency,included_minutes')
         if (!error && Array.isArray(data) && data.length) {
           this.uiPlans = data.map(p => ({
             slug: p.slug,
             name: p.name,
-            monthly_price: Number(p.monthly_price) || 0,
+            monthly_price: (Number(p.monthly_price_cents) || 0) / 100,
             per_min_cents: Number(p.per_min_cents) || 0,
-            concurrency: Number(p.concurrency) || 0,
+            concurrency: Number(p.max_concurrency) || 0,
             included_minutes: Number(p.included_minutes) || 0
           }))
           this.uiPlans.forEach(p => { this.estimatorMinutes[p.slug] = this.defaultEstimateMinutes })
@@ -166,20 +160,17 @@ export default {
         if (!this.approvalLink) {
           this.$toast.add({ severity: 'error', summary: 'Erreur', detail: "Impossible d'obtenir le lien PayPal d'approbation", life: 6000 })
         } else {
-          this.showRedirectModal = true
+          if (amountCents > (this.balanceCents || 0)) {
+            this.$toast.add({ severity: 'warn', summary: 'Solde insuffisant', detail: 'Votre solde est insuffisant pour ce plan. Vous serez redirigé vers PayPal pour compléter le paiement.', life: 6000 })
+          }
+          window.location.href = this.approvalLink
         }
       } catch (e) {
         console.error('subscribe error', e)
         this.$toast.add({ severity: 'error', summary: 'Erreur', detail: 'Erreur lors de la création de la souscription: ' + (e?.response?.data?.error || e.message || e), life: 8000 })
       } finally { this.isLoading = false }
     },
-    openApprovalFromModal() {
-      if (this.approvalLink) {
-        window.open(this.approvalLink, '_blank')
-        this.showRedirectModal = false
-      }
-    },
-    cancelRedirect() { this.showRedirectModal = false },
+    
     estimateCostCents(plan, minutes) {
       const m = Number(minutes) || 0
       return Math.round((Number(plan.per_min_cents) || 0) * m)
