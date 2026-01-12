@@ -649,6 +649,9 @@ app.post('/api/paypal/capture', async (req, res) => {
     // Track whether we successfully applied a credit row so the client can know
     let credited = false
     let creditError = null
+    // Track whether we deducted subscription fee
+    let deductionApplied = false
+    let deductionError = null
     // If `user_id` not provided by client, attempt to look it up from a pending transaction record
     try {
       let resolvedUserId = user_id || null
@@ -744,6 +747,44 @@ app.post('/api/paypal/capture', async (req, res) => {
             } else {
               await supabase.from('user_plans').insert([{ user_id: resolvedUserId, plan_slug: resolvedPlanSlug, started_at: startsAt, expires_at: expiresAt }])
             }
+            // After activating subscription, attempt to deduct the subscription amount from user_credits
+              try {
+                // idempotent: check recent credits/charges for this order/capture
+              let recent = null
+              try {
+                const resp = await supabase.from('user_credits').select('*').eq('user_id', resolvedUserId).order('created_at', { ascending: false }).limit(100)
+                recent = resp?.data || null
+              } catch (e) {
+                recent = null
+              }
+              const alreadyDeducted = Array.isArray(recent) && recent.some(r => {
+                try {
+                  if (!r.meta) return false
+                  if (orderID && r.meta.order_id && String(r.meta.order_id) === String(orderID) && r.source === 'subscription_charge') return true
+                  if (captureId && r.meta.capture_id && String(r.meta.capture_id) === String(captureId) && r.source === 'subscription_charge') return true
+                  return false
+                } catch (e) { return false }
+              })
+                if (!alreadyDeducted && amount) {
+                const deductionRow = {
+                  user_id: resolvedUserId,
+                  amount: -Math.abs(Number(amount)),
+                  currency: currency || 'USD',
+                  source: 'subscription_charge',
+                  meta: Object.assign({}, capture, { order_id: orderID, capture_id: captureId })
+                }
+                try {
+                  await supabase.from('user_credits').insert([deductionRow])
+                  deductionApplied = true
+                  console.log('Inserted subscription_charge (deduction) for user', resolvedUserId)
+                } catch (e) {
+                  deductionError = e?.message || e
+                  console.warn('Could not insert subscription_charge row:', deductionError)
+                }
+              }
+            } catch (e) {
+              console.warn('Error while attempting to deduct subscription amount:', e?.message || e)
+            }
           } catch (e) {
             console.warn('Could not update user_plans after subscription capture:', e.message || e)
           }
@@ -754,7 +795,7 @@ app.post('/api/paypal/capture', async (req, res) => {
     }
 
     // Return capture payload plus a small status indicating whether we applied a credit row
-    return res.json({ capture, credited, credit_error: creditError })
+    return res.json({ capture, credited, credit_error: creditError, deduction_applied: deductionApplied, deduction_error: deductionError })
   } catch (err) {
     console.error('Error capturing PayPal order (unexpected):', err?.response?.data || err.message || err);
     const status = err?.response?.status || 500;
@@ -838,7 +879,7 @@ app.post('/api/paypal/webhook', async (req, res) => {
 
               // idempotent check
               try {
-                const { data: recentCredits } = await supabase.from('user_credits').select('*').eq('user_id', resolvedUserId).order('created_at', { ascending: false }).limit(50)
+                const { data: recentCredits } = await supabase.from('user_credits').select('*').eq('user_id', resolvedUserId).order('created_at', { ascending: false }).limit(100)
                 let alreadyExists = false
                 if (Array.isArray(recentCredits)) {
                   alreadyExists = recentCredits.some(r => {
@@ -850,21 +891,50 @@ app.post('/api/paypal/webhook', async (req, res) => {
                     } catch (e) { return false }
                   })
                 }
-                // If this transaction appears to be a subscription activation (meta.plan_slug present),
-                // skip inserting into `user_credits` to avoid increasing the user's balance.
-                if (!alreadyExists && amount && !planSlug) {
-                  const creditRow = {
-                    user_id: resolvedUserId,
-                    amount: Number(amount),
-                    currency: currency || 'USD',
-                    source: 'paypal_webhook',
-                    meta: Object.assign({}, capture, { order_id: orderId, capture_id: captureId })
-                  }
-                  try {
-                    await supabase.from('user_credits').insert([creditRow])
-                    console.log('Inserted user_credits via PayPal webhook', { user: resolvedUserId, orderId, captureId })
-                  } catch (e) {
-                    console.warn('Could not insert user_credits from webhook:', e?.message || e)
+
+                // determine if this transaction is for a subscription (plan meta)
+                const planSlug = resolvedTx?.meta?.plan_slug || resolvedTx?.meta?.plan || null
+
+                if (!alreadyExists && amount) {
+                  if (planSlug) {
+                    // Subscription activation: insert a negative deduction (idempotent)
+                    const alreadyDeducted = Array.isArray(recentCredits) && recentCredits.some(r => {
+                      try {
+                        if (!r.meta) return false
+                        if (orderId && r.meta.order_id && String(r.meta.order_id) === String(orderId) && r.source === 'subscription_charge') return true
+                        if (captureId && r.meta.capture_id && String(r.meta.capture_id) === String(captureId) && r.source === 'subscription_charge') return true
+                        return false
+                      } catch (e) { return false }
+                    })
+                    if (!alreadyDeducted) {
+                      const deductionRow = {
+                        user_id: resolvedUserId,
+                        amount: -Math.abs(Number(amount)),
+                        currency: currency || 'USD',
+                        source: 'subscription_charge',
+                        meta: Object.assign({}, capture, { order_id: orderId, capture_id: captureId })
+                      }
+                      try {
+                        await supabase.from('user_credits').insert([deductionRow])
+                        console.log('Inserted subscription_charge (deduction) via webhook', { user: resolvedUserId, orderId, captureId })
+                      } catch (e) {
+                        console.warn('Could not insert subscription_charge from webhook:', e?.message || e)
+                      }
+                    }
+                  } else {
+                    const creditRow = {
+                      user_id: resolvedUserId,
+                      amount: Number(amount),
+                      currency: currency || 'USD',
+                      source: 'paypal_webhook',
+                      meta: Object.assign({}, capture, { order_id: orderId, capture_id: captureId })
+                    }
+                    try {
+                      await supabase.from('user_credits').insert([creditRow])
+                      console.log('Inserted user_credits via PayPal webhook', { user: resolvedUserId, orderId, captureId })
+                    } catch (e) {
+                      console.warn('Could not insert user_credits from webhook:', e?.message || e)
+                    }
                   }
                 }
               } catch (e) {

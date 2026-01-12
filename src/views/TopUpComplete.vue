@@ -61,17 +61,19 @@ export default {
       try {
         const resp = await captureOrder(token, user_id, plan_slug)
         const capture = resp?.capture || resp
-        if (resp && resp.credited) {
+        if (resp && (resp.credited || resp.deduction_applied)) {
           this.success = true
-          toast.add({ severity: 'success', summary: 'Paiement', detail: 'Paiement capturé et solde crédité', life: 6000 })
+          if (resp.credited) toast.add({ severity: 'success', summary: 'Paiement', detail: 'Paiement capturé et solde crédité', life: 6000 })
+          else toast.add({ severity: 'success', summary: 'Paiement', detail: 'Paiement capturé et frais d\'abonnement déduits du solde', life: 6000 })
           try { window.dispatchEvent(new CustomEvent('balance:updated')) } catch (e) {}
-        } else if (resp && resp.credit_error) {
+        } else if (resp && (resp.credit_error || resp.deduction_error)) {
           this.success = true
-          toast.add({ severity: 'warn', summary: 'Paiement', detail: 'Paiement capturé, mais le solde n\'a pas pu être crédité', life: 8000 })
-          this.message = String(resp.credit_error)
+          const err = resp.credit_error || resp.deduction_error
+          toast.add({ severity: 'warn', summary: 'Paiement', detail: 'Paiement capturé, mais le solde n\'a pas pu être mis à jour: ' + String(err), life: 8000 })
+          this.message = String(err)
         } else {
           this.success = true
-          toast.add({ severity: 'warn', summary: 'Paiement', detail: 'Paiement capturé, mais le solde n\'a pas été crédité automatiquement', life: 8000 })
+          toast.add({ severity: 'warn', summary: 'Paiement', detail: 'Paiement capturé, mais le solde n\'a pas été modifié automatiquement', life: 8000 })
         }
       } catch (e) {
         // If server indicates ORDER_NOT_APPROVED, show approval link and open it

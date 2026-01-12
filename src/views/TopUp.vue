@@ -111,13 +111,15 @@ export default {
         const capture = resp?.capture || resp
         this.order = capture
         this.approvalLink = null
-        if (resp && resp.credited) {
-          this.message = 'Paiement capturé et solde crédité avec succès.'
+        if (resp && (resp.credited || resp.deduction_applied)) {
+          if (resp.credited) this.message = 'Paiement capturé et solde crédité avec succès.'
+          else this.message = 'Paiement capturé et frais d\'abonnement déduits du solde.'
           try { window.dispatchEvent(new CustomEvent('balance:updated')) } catch (e) {}
-        } else if (resp && resp.credit_error) {
-          this.message = 'Paiement capturé, mais le solde n\'a pas pu être crédité: ' + String(resp.credit_error)
+        } else if (resp && (resp.credit_error || resp.deduction_error)) {
+          const err = resp.credit_error || resp.deduction_error
+          this.message = 'Paiement capturé, mais mise à jour du solde échouée: ' + String(err)
         } else {
-          this.message = 'Paiement capturé, mais le solde n\'a pas été crédité automatiquement.'
+          this.message = 'Paiement capturé, mais le solde n\'a pas été mis à jour automatiquement.'
         }
         this.showRedirectModal = false
         this.$router.push('/pricing')
