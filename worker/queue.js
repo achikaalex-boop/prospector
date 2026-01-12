@@ -72,7 +72,28 @@ async function pollLoop() {
       if (jobs && jobs.length) {
         for (const job of jobs) {
           try {
-            const limit = await getConcurrencyLimitForPlan(job.plan_slug)
+            // Re-check user's current plan (to avoid using an expired plan stored on the job)
+            let effectivePlan = job.plan_slug
+            try {
+              if (supabase && job.user_id) {
+                const { data: up } = await supabase.from('user_plans').select('plan_slug,expires_at').eq('user_id', job.user_id).order('started_at', { ascending: false }).limit(1).single()
+                if (up) {
+                  try {
+                    if (up.expires_at && new Date(up.expires_at) <= new Date()) {
+                      effectivePlan = 'starter'
+                    } else if (up.plan_slug) {
+                      effectivePlan = up.plan_slug
+                    }
+                  } catch (e) {}
+                }
+                // best-effort: update job row if plan differs
+                if (effectivePlan !== job.plan_slug) {
+                  try { await supabase.from('job_queue').update({ plan_slug: effectivePlan }).eq('id', job.id) } catch (e) {}
+                }
+              }
+            } catch (e) {}
+
+            const limit = await getConcurrencyLimitForPlan(effectivePlan)
             const { data: running } = await supabase.from('job_queue').select('id').eq('status', 'processing').eq('plan_slug', job.plan_slug)
             if (running && running.length >= limit) continue
 

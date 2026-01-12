@@ -321,21 +321,35 @@ app.post('/api/create-campaign', async (req, res) => {
     const avgCallSec = Number(payload.estimated_avg_call_seconds || 60)
     const planSlug = payload.plan_slug || null
 
-    // Fetch active plan for user (join to plans table)
+    // Fetch active plan for user (join to plans table) and ignore expired plans
     let plan = null
     try {
       let up = null
       try {
-        const resp = await supabase.from('user_plans').select('plan_id, started_at, expires_at, active').eq('user_id', userId).limit(1).single()
+        const resp = await supabase.from('user_plans').select('id,plan_id,plan_slug, started_at, expires_at, active').eq('user_id', userId).order('started_at', { ascending: false }).limit(1).single()
         up = resp?.data || null
       } catch (e) {
         up = null
       }
-      if (up && up.plan_id) {
+      // if up exists and is expired, ignore it
+      try {
+        if (up && up.expires_at && new Date(up.expires_at) <= new Date()) {
+          console.log('Ignoring expired user_plan for user', userId, 'expires_at', up.expires_at)
+          up = null
+        }
+      } catch (e) {}
+      if (up) {
         try {
-          const resp2 = await supabase.from('plans').select('*').eq('id', up.plan_id).limit(1).single()
-          const p = resp2?.data || null
-          if (p) plan = p
+          // prefer plan_id if present, otherwise use plan_slug
+          if (up.plan_id) {
+            const resp2 = await supabase.from('plans').select('*').eq('id', up.plan_id).limit(1).single()
+            const p = resp2?.data || null
+            if (p) plan = p
+          } else if (up.plan_slug) {
+            const resp2 = await supabase.from('plans').select('*').eq('slug', up.plan_slug).limit(1).single()
+            const p = resp2?.data || null
+            if (p) plan = p
+          }
         } catch (e) {
           // ignore
         }
