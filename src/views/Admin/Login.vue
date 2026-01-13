@@ -43,15 +43,36 @@ export default {
       try {
         this.isLoading = true
         this.error = null
+        console.log('Attempting to initialize admin credentials')
         // Try to initialize admin credentials if none exist
         const resp = await axios.post('/api/admin/set-admin-credentials', { email: this.email || 'admin@localhost', password: this.password || 'admin' })
         if (resp.data && resp.data.ok) {
           this.$toast.add({ severity: 'success', summary: 'Initialisé', detail: 'Identifiants administrateur créés', life: 4000 })
+          // Auto-login after initialization
+          try {
+            const login = await axios.post('/api/admin/login', { email: this.email || 'admin@localhost', password: this.password || 'admin' })
+            if (login.data && login.data.ok && login.data.token) {
+              const token = login.data.token
+              localStorage.setItem('admin_token', token)
+              axios.defaults.headers.common['x-admin-token'] = token
+              this.$router.push({ name: 'AdminPlans' })
+            } else {
+              // No token returned; inform user to login manually
+              this.$toast.add({ severity: 'info', summary: 'Initialisé', detail: 'Identifiants créés. Connectez-vous manuellement.', life: 5000 })
+            }
+          } catch (le) {
+            console.error('Auto-login failed', le)
+            this.$toast.add({ severity: 'info', summary: 'Initialisé', detail: 'Identifiants créés mais auto-login impossible. Connectez-vous manuellement.', life: 6000 })
+            this.error = le?.response?.data?.error || le.message || String(le)
+          }
         } else {
           this.error = 'Impossible d\'initialiser'
+          console.warn('set-admin-credentials returned unexpected response', resp)
         }
       } catch (e) {
+        console.error('initIfNeeded error', e)
         this.error = e?.response?.data?.error || e.message || String(e)
+        this.$toast.add({ severity: 'error', summary: 'Erreur', detail: this.error, life: 6000 })
       } finally { this.isLoading = false }
     }
   }
