@@ -68,6 +68,23 @@
       </div>
     </div>
   </div>
+
+  <Dialog v-model:visible="showAddonsDialog" :modal="true" :style="{ width: '480px' }" header="Add-ons">
+    <div v-if="selectedPlanForAddons">
+      <p class="mb-3"><strong>Add-ons pour:</strong> {{ selectedPlanForAddons.name }} ({{ selectedPlanForAddons.slug }})</p>
+      <ul class="mb-4">
+        <li v-if="selectedPlanForAddons.has_dedicated_number">Numéro dédié disponible</li>
+        <li v-if="selectedPlanForAddons.has_extra_concurrency">Concurrency supplémentaire disponible</li>
+        <li v-if="!selectedPlanForAddons.has_dedicated_number && !selectedPlanForAddons.has_extra_concurrency">Aucun add-on disponible pour ce plan.</li>
+      </ul>
+      <div class="flex gap-2">
+        <button v-if="selectedPlanForAddons.has_dedicated_number" @click="requestAddon('dedicated_number')" class="px-3 py-2 bg-blue-600 text-white rounded">Demander un numéro dédié</button>
+        <button v-if="selectedPlanForAddons.has_extra_concurrency" @click="requestAddon('extra_concurrency')" class="px-3 py-2 bg-blue-600 text-white rounded">Demander plus de concurrency</button>
+        <button @click="requestAddon('support')" class="px-3 py-2 border rounded">Contacter le support</button>
+        <button @click="closeAddonsDialog" class="px-3 py-2 border rounded">Fermer</button>
+      </div>
+    </div>
+  </Dialog>
 </template>
 
 <script>
@@ -76,6 +93,7 @@ import { supabase } from '../lib/supabase'
 
 export default {
   name: 'Pricing',
+  components: { Dialog },
   data() {
     return {
       uiPlans: [
@@ -89,11 +107,16 @@ export default {
       approvalLink: null,
       isLoading: false,
       estimatorMinutes: {},
-      defaultEstimateMinutes: 10
+      defaultEstimateMinutes: 10,
+      supportEmail: '',
+      supportLoading: false,
+      showAddonsDialog: false,
+      selectedPlanForAddons: null
     }
   },
   async created() {
     await Promise.all([this.fetchPlans(), this.fetchBalance(), this.fetchActivePlan()])
+    await this.fetchSupportEmail()
   },
   mounted() {
     window.addEventListener('balance:updated', this.fetchBalance)
@@ -261,9 +284,55 @@ export default {
       return Math.max(0, billableCents - this.balanceCents)
     }
     ,
-    openAddons(plan) {
-      // simple placeholder: open pricing page anchor for add-ons or show toast
-      this.$toast.add({ severity: 'info', summary: 'Add-ons', detail: 'Options disponibles: numéro dédié, concurrency add-on. Contactez le support pour activer.', life: 6000 })
+    async fetchSupportEmail() {
+      this.supportLoading = true
+      try {
+        const resp = await axios.get('/api/app-settings/support-email')
+        this.supportEmail = resp.data?.support_email || ''
+      } catch (e) {
+        this.supportEmail = ''
+      } finally { this.supportLoading = false }
+    },
+    async openAddons(plan) {
+      try {
+        let user_id = null
+        try { const { data: { session } } = await supabase.auth.getSession(); user_id = session?.user?.id || null } catch (e) {}
+        if (!user_id) {
+          this.$toast.add({ severity: 'warn', summary: 'Connexion requise', detail: 'Veuillez vous connecter pour demander un add-on.', life: 5000 })
+          this.$router.push({ name: 'Login' })
+          return
+        }
+        this.selectedPlanForAddons = plan
+        this.showAddonsDialog = true
+      } catch (e) {
+        console.error('openAddons error', e)
+        this.$toast.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible d\'ouvrir les add-ons.', life: 5000 })
+      }
+    }
+
+    ,
+
+    async requestAddon(type) {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        const user_id = session?.user?.id || 'unknown'
+        const plan = this.selectedPlanForAddons
+        const subject = encodeURIComponent(`Demande d'add-on: ${type} pour ${plan?.slug || ''}`)
+        const body = encodeURIComponent(`Utilisateur: ${user_id}\nPlan: ${plan?.slug || ''}\nAdd-on: ${type}\nMerci.`)
+        const to = (this.supportEmail && String(this.supportEmail).length) ? this.supportEmail : 'support@prospector.example'
+        window.location.href = `mailto:${encodeURIComponent(to)}?subject=${subject}&body=${body}`
+        this.$toast.add({ severity: 'success', summary: 'Demande', detail: 'Ouverture du client mail pour contacter le support', life: 5000 })
+        this.showAddonsDialog = false
+        this.selectedPlanForAddons = null
+      } catch (e) {
+        console.error('requestAddon error', e)
+        this.$toast.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de lancer la demande.', life: 5000 })
+      }
+    },
+
+    closeAddonsDialog() {
+      this.showAddonsDialog = false
+      this.selectedPlanForAddons = null
     }
   }
 }

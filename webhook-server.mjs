@@ -429,6 +429,53 @@ app.post('/api/admin/grant-addon', async (req, res) => {
   }
 })
 
+// Public endpoint to fetch all app settings
+app.get('/api/app-settings', async (_req, res) => {
+  if (!supabase) return res.status(500).json({ error: 'Supabase not configured' })
+  try {
+    const { data, error } = await supabase.from('app_settings').select('key,value')
+    if (error) return res.status(500).json({ error })
+    return res.json(data || [])
+  } catch (e) {
+    console.error('Error fetching app_settings:', e)
+    return res.status(500).json({ error: 'internal' })
+  }
+})
+
+// Public endpoint to fetch support email
+app.get('/api/app-settings/support-email', async (_req, res) => {
+  if (!supabase) return res.status(500).json({ error: 'Supabase not configured' })
+  try {
+    const { data, error } = await supabase.from('app_settings').select('value').eq('key', 'support_email').limit(1).single()
+    if (error) return res.status(500).json({ error })
+    return res.json({ support_email: data ? data.value : null })
+  } catch (e) {
+    console.error('Error fetching support_email:', e)
+    return res.status(500).json({ error: 'internal' })
+  }
+})
+
+// Admin endpoint to upsert an app setting (key/value)
+app.post('/api/admin/app-settings', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Supabase not configured' })
+    const ok = await isRequestAdmin(req)
+    if (!ok) return res.status(403).json({ error: 'admin_only' })
+    const { key, value } = req.body || {}
+    if (!key) return res.status(400).json({ error: 'missing_key' })
+
+    const { data, error } = await supabase.from('app_settings').upsert([{ key, value }], { onConflict: ['key'] })
+    if (error) {
+      console.error('app-settings upsert error', error)
+      return res.status(500).json({ error })
+    }
+    return res.json({ ok: true })
+  } catch (e) {
+    console.error('Error in /api/admin/app-settings:', e)
+    return res.status(500).json({ error: 'internal' })
+  }
+})
+
 // Create campaign via server: checks billing/plan before inserting and enqueuing batch
 app.post('/api/create-campaign', async (req, res) => {
   try {

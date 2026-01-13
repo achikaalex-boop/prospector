@@ -17,6 +17,17 @@
             <button @click="grantAddon" class="bg-blue-600 text-white px-3 py-1 rounded">Accorder add-on</button>
           </div>
         </div>
+
+      <div class="mb-4 bg-white p-4 rounded shadow">
+        <h3 class="font-semibold mb-2">Configuration</h3>
+        <label class="text-xs">Email support</label>
+        <div class="flex gap-2 mt-2">
+          <input v-model="supportEmail" placeholder="support@..." class="p-2 border rounded flex-1" />
+          <button @click="saveSupportEmail" :disabled="supportLoading" class="bg-green-600 text-white px-3 py-1 rounded">Enregistrer</button>
+        </div>
+        <p class="text-xs text-gray-500 mt-2">L'adresse ci-dessus est utilisée par la page <strong>Pricing</strong> pour l'envoi d'emails de support.</p>
+      </div>
+
       <div v-for="p in plans" :key="p.slug" class="mb-4 bg-white p-4 rounded shadow">
         <div class="flex justify-between items-start">
           <div>
@@ -46,7 +57,7 @@ import axios from 'axios'
 import { supabase } from '../../lib/supabase'
 export default {
   name: 'AdminPlans',
-  data() { return { plans: [], loading: true, editable: {} } },
+  data() { return { plans: [], loading: true, editable: {}, supportEmail: '', supportLoading: false } },
   async created() {
     // ensure admin access
     try {
@@ -63,6 +74,7 @@ export default {
     }
     await this.load()
     this.addonForm = { user_id: '', addon_key: 'dedicated_number', value: '' }
+    await this.fetchSupportEmail()
   },
   methods: {
     async load() {
@@ -115,6 +127,31 @@ export default {
           this.$toast.add({ severity: 'error', summary: 'Erreur', detail: 'Échec', life: 6000 })
         }
       } catch (e) { console.error(e); this.$toast.add({ severity: 'error', summary: 'Erreur', detail: e?.response?.data?.error || e.message || String(e), life: 8000 }) }
+    },
+
+    async fetchSupportEmail() {
+      this.supportLoading = true
+      try {
+        const resp = await axios.get('/api/app-settings/support-email')
+        this.supportEmail = resp.data?.support_email || ''
+      } catch (e) {
+        console.error('fetchSupportEmail failed', e)
+        this.supportEmail = ''
+      } finally { this.supportLoading = false }
+    },
+
+    async saveSupportEmail() {
+      try {
+        const resp = await axios.post('/api/admin/app-settings', { key: 'support_email', value: this.supportEmail })
+        if (resp.data && resp.data.ok) {
+          this.$toast.add({ severity: 'success', summary: 'Enregistré', detail: 'Email de support mis à jour', life: 4000 })
+        } else {
+          this.$toast.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible d\'enregistrer', life: 6000 })
+        }
+      } catch (e) {
+        console.error('saveSupportEmail failed', e)
+        this.$toast.add({ severity: 'error', summary: 'Erreur', detail: e?.response?.data?.error || e.message || String(e), life: 8000 })
+      }
     }
   }
 }
