@@ -90,6 +90,7 @@
 <script>
 import axios from 'axios'
 import { supabase } from '../lib/supabase'
+import Dialog from 'primevue/dialog'
 
 export default {
   name: 'Pricing',
