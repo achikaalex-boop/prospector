@@ -14,7 +14,7 @@
               <h3 class="text-lg font-semibold">{{ p.name }} <span class="text-xs ml-2 text-gray-500">{{ p.tagline || '' }}</span></h3>
             </div>
             <div class="mt-3 text-sm text-gray-200/80">
-              <div class="text-xl font-bold">{{ displayMoney(monthlyPriceCents(p)) }} USD</div>
+              <div :class="['text-xl font-bold', p.slug === 'pro' ? 'text-white' : 'text-gray-900']">{{ displayMoney(monthlyPriceCents(p)) }} USD</div>
               <div class="text-sm text-gray-400">/ mois</div>
             </div>
           </div>
@@ -29,13 +29,13 @@
           <p class="font-semibold">Inclus</p>
           <ul class="mt-2 space-y-1">
             <li><strong>Prix :</strong> {{ displayMoney(monthlyPriceCents(p)) }} USD</li>
-            <li><strong>Minutes incluses :</strong> {{ p.included_minutes || '—' }} / mois <small class="text-gray-500">(non reportables)</small></li>
+            <li><strong>Minutes incluses :</strong> {{ p.included_minutes || '—' }} / mois</li>
             <li><strong>Concurrency :</strong> {{ p.max_concurrency || p.concurrency || '—' }}</li>
             <li v-if="p.minutes_expiry_days"><strong>Expiration des minutes :</strong> {{ p.minutes_expiry_days }} jours</li>
-            <li><strong>Carte bancaire requise :</strong> <span v-if="p.card_required">✅</span><span v-else>❌</span></li>
+
             <li><strong>Priorité réseau :</strong> {{ p.network_priority || 'standard' }}</li>
-            <li><strong>Soft limit :</strong> {{ p.soft_limit_percent || '—' }}%</li>
-            <li>Throttling après dépassement</li>
+            <li><strong>Soft limit :</strong> {{ p.soft_limit_percent || '—' }}% <small class="text-gray-500">Seuil d'alerte : déclenche avertissements et mesures d'atténuation avant facturation additionnelle.</small></li>
+            <li>Throttling après dépassement <small class="text-gray-500">Après dépassement des minutes incluses, le débit est réduit temporairement pour limiter les coûts.</small></li>
           </ul>
 
           <p class="mt-3 font-semibold">Au-delà</p>
@@ -50,7 +50,11 @@
             <li v-if="!p.has_dedicated_number">Pas de numéro dédié</li>
           </ul>
 
-          <p v-if="p.description" class="mt-3 text-xs text-gray-500">{{ p.description }}</p>
+          <div v-if="p.description" class="mt-3 text-xs text-gray-500">
+            <ul class="list-disc ml-4 space-y-1">
+              <li v-for="(line, idx) in formatDescription(p.description)" :key="idx">{{ line }}</li>
+            </ul>
+          </div>
 
         </div>
 
@@ -133,8 +137,11 @@ export default {
       if (typeof plan.monthly_price === 'number') return Math.round(plan.monthly_price * 100)
       if (typeof plan.monthly_price_cents === 'number') return Math.round(plan.monthly_price_cents)
       return 0
-    },
-    async fetchPlans() {
+    },    formatDescription(desc) {
+      if (!desc) return []
+      // split on dot, semicolon or newline and trim each part
+      return String(desc).split(/[.;\n]+/).map(s => s.trim()).filter(Boolean)
+    },    async fetchPlans() {
       try {
         // DB stores monthly_price_cents and per_min_cents as cents
             const { data, error } = await supabase.from('plans').select('slug,name,monthly_price_cents,per_min_cents,max_concurrency,included_minutes,description,tagline,objective,minutes_expiry_days,card_required,network_priority,soft_limit_percent,has_dedicated_number,has_extra_concurrency')
