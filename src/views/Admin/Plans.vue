@@ -3,6 +3,14 @@
     <h1 class="text-2xl font-bold mb-4">Admin — Plans</h1>
     <div v-if="loading">Chargement...</div>
     <div v-else>
+      <Message v-if="pageError" severity="error" :closable="false" class="mb-4">
+        {{ pageError }}
+        <div class="mt-2">
+          <button @click.prevent="retryAdminCheck" class="px-3 py-1 border rounded">Re-tester l'accès admin</button>
+        </div>
+      </Message>
+      <div v-if="adminStatus && adminStatus.initialized === false" class="mb-4 text-sm text-gray-600">Administration non initialisée. Vous pouvez <router-link to="/admin">initialiser</router-link> un compte admin.</div>
+      <div v-if="adminStatus && adminStatus.admin_email" class="mb-4 text-sm text-gray-600">Compte admin: <strong>{{ adminStatus.admin_email }}</strong></div>
         <div class="mb-4 bg-white p-4 rounded shadow">
           <h3 class="font-semibold mb-2">Accorder un add-on à un utilisateur</h3>
           <div class="grid grid-cols-3 gap-2">
@@ -41,22 +49,27 @@
         <p class="text-xs text-gray-500 mt-2">L'adresse ci-dessus est utilisée par la page <strong>Pricing</strong> pour l'envoi d'emails de support.</p>
       </div>
 
-      <div v-for="p in plans" :key="p.slug" class="mb-4 bg-white p-4 rounded shadow">
-        <div class="flex justify-between items-start">
-          <div>
-            <div class="text-lg font-semibold">{{ p.name }} <span class="text-sm text-gray-500">({{ p.slug }})</span></div>
-            <div class="text-sm text-gray-600">{{ p.description }}</div>
-          </div>
-          <div class="w-64">
-            <label class="text-xs">Prix / mois (USD)</label>
-            <input type="number" v-model.number="editable[p.slug].monthly_price" class="w-full p-2 border rounded" />
-            <label class="text-xs">Minutes incluses</label>
-            <input type="number" v-model.number="editable[p.slug].included_minutes" class="w-full p-2 border rounded" />
-            <label class="text-xs">Overage (cents/min)</label>
-            <input type="number" v-model.number="editable[p.slug].per_min_cents" class="w-full p-2 border rounded" />
-            <div class="flex gap-2 mt-2">
-              <button @click="save(p.slug)" class="bg-green-600 text-white px-3 py-1 rounded">Enregistrer</button>
-              <button @click="reset(p.slug)" class="bg-gray-200 px-3 py-1 rounded">Annuler</button>
+      <div v-if="!plans || plans.length === 0" class="mb-4 bg-white p-4 rounded shadow">
+        <div class="text-sm text-gray-600">Aucun plan trouvé.</div>
+      </div>
+      <div v-else>
+        <div v-for="p in plans" :key="p.slug" class="mb-4 bg-white p-4 rounded shadow">
+          <div class="flex justify-between items-start">
+            <div>
+              <div class="text-lg font-semibold">{{ p.name }} <span class="text-sm text-gray-500">({{ p.slug }})</span></div>
+              <div class="text-sm text-gray-600">{{ p.description }}</div>
+            </div>
+            <div class="w-64">
+              <label class="text-xs">Prix / mois (USD)</label>
+              <input type="number" v-model.number="editable[p.slug].monthly_price" class="w-full p-2 border rounded" />
+              <label class="text-xs">Minutes incluses</label>
+              <input type="number" v-model.number="editable[p.slug].included_minutes" class="w-full p-2 border rounded" />
+              <label class="text-xs">Overage (cents/min)</label>
+              <input type="number" v-model.number="editable[p.slug].per_min_cents" class="w-full p-2 border rounded" />
+              <div class="flex gap-2 mt-2">
+                <button @click="save(p.slug)" class="bg-green-600 text-white px-3 py-1 rounded">Enregistrer</button>
+                <button @click="reset(p.slug)" class="bg-gray-200 px-3 py-1 rounded">Annuler</button>
+              </div>
             </div>
           </div>
         </div>
@@ -68,9 +81,11 @@
 <script>
 import axios from 'axios'
 import { supabase } from '../../lib/supabase'
+import Message from 'primevue/message'
 export default {
   name: 'AdminPlans',
-  data() { return { plans: [], loading: true, editable: {}, supportEmail: '', supportLoading: false, adminEmailInput: '', adminPasswordInput: '' } },
+  components: { Message },
+  data() { return { plans: [], loading: true, editable: {}, supportEmail: '', supportLoading: false, adminEmailInput: '', adminPasswordInput: '', pageError: null, adminStatus: null } },
   async created() {
     // ensure admin access (supports admin token stored in localStorage)
     try {
@@ -78,26 +93,34 @@ export default {
       const headers = token ? { 'x-admin-token': token } : {}
       const resp = await axios.get('/api/admin/check', { headers })
       if (!resp.data || !resp.data.ok) {
-        this.$toast.add({ severity: 'warn', summary: 'Accès refusé', detail: 'Accès administrateur requis', life: 4000 })
-        this.$router.push('/admin')
+        // show inline error instead of immediate redirect so user sees why it's blank
+        this.pageError = 'Accès refusé: accès administrateur requis. Connectez-vous via /admin.'
         return
       }
       if (token) axios.defaults.headers.common['x-admin-token'] = token
     } catch (e) {
-      this.$toast.add({ severity: 'warn', summary: 'Accès refusé', detail: 'Accès administrateur requis', life: 4000 })
-      this.$router.push('/admin')
+      console.error('admin check failed', e)
+      this.pageError = 'Erreur lors de la vérification d\'accès administrateur.'
       return
     }
     await this.load()
     this.addonForm = { user_id: '', addon_key: 'dedicated_number', value: '' }
     await this.fetchSupportEmail()
+    try {
+      const status = await axios.get('/api/admin/status')
+      this.adminStatus = status.data || null
+    } catch (e) { /* ignore */ }
   },
   methods: {
     async load() {
       this.loading = true
+      this.pageError = null
       try {
         const { data, error } = await supabase.from('plans').select('*').order('monthly_price_cents', { ascending: true })
-        if (!error && Array.isArray(data)) {
+        if (error) {
+          console.error('fetch plans error', error)
+          this.pageError = 'Erreur lors du chargement des plans: ' + (error.message || JSON.stringify(error))
+        } else if (Array.isArray(data)) {
           this.plans = data
           data.forEach(p => {
             this.editable[p.slug] = {
@@ -107,7 +130,10 @@ export default {
             }
           })
         }
-      } catch (e) { console.error(e) } finally { this.loading = false }
+      } catch (e) {
+        console.error(e)
+        this.pageError = 'Erreur inattendue: ' + (e?.message || String(e))
+      } finally { this.loading = false }
     },
     reset(slug) { if (this.plans) {
       const p = this.plans.find(x => x.slug === slug)
@@ -178,6 +204,12 @@ export default {
       localStorage.removeItem('admin_token')
       delete axios.defaults.headers.common['x-admin-token']
       this.$toast.add({ severity: 'info', summary: 'Déconnecté', detail: 'Session admin déconnectée localement', life: 3000 })
+    },
+
+    retryAdminCheck() {
+      this.pageError = null
+      // simple re-run: reload the page (or re-run created logic by pushing to self)
+      this.$router.replace({ path: this.$route.path, query: Object.assign({}, this.$route.query, { t: Date.now() }) })
     },
 
     async saveSupportEmail() {

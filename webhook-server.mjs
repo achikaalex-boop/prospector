@@ -496,6 +496,18 @@ app.post('/api/admin/login', async (req, res) => {
   }
 })
 
+// Admin status
+app.get('/api/admin/status', async (_req, res) => {
+  try {
+    const email = await getAppSetting('admin_email')
+    const hash = await getAppSetting('admin_password_hash')
+    return res.json({ initialized: !!(hash && String(hash).trim() !== ''), admin_email: email || null })
+  } catch (e) {
+    console.error('Error in /api/admin/status:', e)
+    return res.status(500).json({ error: 'internal' })
+  }
+})
+
 // Admin: set or change admin credentials
 app.post('/api/admin/set-admin-credentials', async (req, res) => {
   try {
