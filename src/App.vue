@@ -119,7 +119,9 @@ onMounted(() => {
     supabase.auth.onAuthStateChange((event, session) => {
       isAuthenticated.value = !!session
       fetchBalance()
-      if (!session && router.currentRoute.value.path !== '/login' && router.currentRoute.value.path !== '/register') {
+      // Do not force redirect to /login if visiting admin routes
+      const currentPath = router.currentRoute.value.path || ''
+      if (!session && currentPath !== '/login' && currentPath !== '/register' && !currentPath.startsWith('/admin')) {
         router.push('/login')
       }
     })

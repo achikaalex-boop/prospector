@@ -59,14 +59,14 @@ const routes = [
     path: '/admin/calls-audit',
     name: 'AdminCallsAudit',
     component: () => import('../views/Admin/CallsAudit.vue'),
-    meta: { requiresAuth: true }
+    meta: { adminOnly: true }
   }
   ,
   {
     path: '/admin/plans',
     name: 'AdminPlans',
     component: () => import('../views/Admin/Plans.vue'),
-    meta: { requiresAuth: true }
+    meta: { adminOnly: true }
   }
   ,
   {
@@ -85,7 +85,8 @@ router.beforeEach(async (to, from, next) => {
   try {
     const { data: { session } } = await supabase.auth.getSession()
     
-    if (to.meta.requiresAuth && !session) {
+    // Protected routes that require a logged-in user (not admin-only routes)
+    if (to.meta && to.meta.requiresAuth && !session) {
       next('/login')
     } else if ((to.path === '/login' || to.path === '/register') && session) {
       next('/')
@@ -93,9 +94,9 @@ router.beforeEach(async (to, from, next) => {
       next()
     }
   } catch (error) {
-    // Si Supabase n'est pas configuré, rediriger vers login
+    // Si Supabase n'est pas configuré, rediriger vers login for user-only routes
     console.error('Erreur Supabase:', error)
-    if (to.meta.requiresAuth) {
+    if (to.meta && to.meta.requiresAuth) {
       next('/login')
     } else {
       next()
