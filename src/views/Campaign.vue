@@ -510,7 +510,6 @@ const loadUserNumbers = async () => {
 }
 
 onMounted(() => { loadMonthlyCount(); loadUserNumbers() })
-watch(selectedPlan, () => { loadMonthlyCount() })
 
 const timezoneOptions = [
   { label: 'Africa/Porto-Novo', value: 'Africa/Porto-Novo' },
