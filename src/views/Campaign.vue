@@ -487,10 +487,30 @@ const domainOptions = [
   'Autre'
 ]
 
-const fromNumberOptions = [
+const baseFromNumberOptions = [
   { label: 'United States', value: '+14752906147' },
   { label: 'Switzerland', value: '+41234567890' }
 ]
+const fromNumberOptions = ref([...baseFromNumberOptions])
+
+// Load user's assigned dedicated numbers and prepend them to the list
+const loadUserNumbers = async () => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { data, error } = await supabase.from('user_dedicated_numbers').select('number,country_code').eq('user_id', user.id)
+    if (!error && Array.isArray(data)) {
+      data.forEach(n => {
+        fromNumberOptions.value.unshift({ label: `${n.country_code || 'DED'} ${n.number}`, value: n.number })
+      })
+    }
+  } catch (e) {
+    console.error('loadUserNumbers error', e)
+  }
+}
+
+onMounted(() => { loadMonthlyCount(); loadUserNumbers() })
+watch(selectedPlan, () => { loadMonthlyCount() })
 
 const timezoneOptions = [
   { label: 'Africa/Porto-Novo', value: 'Africa/Porto-Novo' },

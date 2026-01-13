@@ -48,19 +48,43 @@
     </div>
 
     <div class="mt-4 bg-white p-4 rounded shadow max-w-3xl mx-auto">
-      <h3 class="font-semibold mb-2">Add-ons activés</h3>
-      <div v-if="addons.length === 0" class="text-sm text-gray-500">Aucun add-on activé.</div>
+      <h3 class="font-semibold mb-2">Numéros dédiés</h3>
+
+      <div v-if="dedicatedNumbers.length === 0" class="text-sm text-gray-500">Pas de numéro dédié attribué.</div>
       <ul v-else class="text-sm">
-        <li v-for="a in addons" :key="a.addon_key" class="py-2 border-b">
-          <div class="flex justify-between">
+        <li v-for="n in dedicatedNumbers" :key="n.id" class="py-2 border-b">
+          <div class="flex justify-between items-center">
             <div>
-              <div class="font-medium">{{ a.addon_key }}</div>
-              <div class="text-xs text-gray-500">Activé: {{ formatDate(a.created_at) }}</div>
+              <div class="font-medium">{{ n.number }}</div>
+              <div class="text-xs text-gray-500">Pays: {{ n.country_code || '—' }} • Ajouté: {{ formatDate(n.created_at) }}</div>
             </div>
-            <div class="text-sm text-gray-700">{{ a.value ? JSON.stringify(a.value) : '' }}</div>
+            <div class="text-sm text-gray-700">&nbsp;</div>
           </div>
         </li>
       </ul>
+
+      <h4 class="mt-4 font-semibold">Demander un numéro dédié</h4>
+      <div class="flex gap-2 mt-2">
+        <input v-model="requestCountry" placeholder="Pays (ex: FR)" class="p-2 border rounded" />
+        <button @click="submitDedicatedRequest" :disabled="requestLoading" class="bg-blue-600 text-white px-3 py-1 rounded">Demander</button>
+      </div>
+      <div v-if="requestMessage" class="text-sm text-green-600 mt-2">{{ requestMessage }}</div>
+
+      <div v-if="pendingRequests.length" class="mt-4">
+        <h5 class="font-semibold text-sm">Demandes en attente</h5>
+        <ul class="text-sm mt-2">
+          <li v-for="r in pendingRequests" :key="r.id" class="py-2 border-b">
+            <div class="flex justify-between">
+              <div>
+                <div class="font-medium">Pays: {{ r.country_code }}</div>
+                <div class="text-xs text-gray-500">Envoyée: {{ formatDate(r.created_at) }} — Statut: {{ r.status }}</div>
+              </div>
+              <div class="text-sm text-gray-700">&nbsp;</div>
+            </div>
+          </li>
+        </ul>
+      </div>
+
     </div>
 
   </div>
@@ -77,7 +101,11 @@ export default {
       balanceLoading: true,
       transactions: [],
       loadingTransactions: true,
-      addons: []
+      dedicatedNumbers: [],
+      pendingRequests: [],
+      requestCountry: '',
+      requestLoading: false,
+      requestMessage: ''
     }
   },
   computed: {
@@ -93,8 +121,9 @@ export default {
     }
   },
   async created() {
-    await Promise.all([this.fetchPlan(), this.fetchBalance(), this.fetchTransactions(), this.fetchAddons()])
+    await Promise.all([this.fetchPlan(), this.fetchBalance(), this.fetchTransactions(), this.fetchDedicatedNumbers(), this.fetchPendingRequests()])
   },
+
   methods: {
     formatDate(d) {
       try { return new Date(d).toLocaleString() } catch (e) { return d }
@@ -150,16 +179,61 @@ export default {
         console.error('fetchTransactions error', e)
       } finally { this.loadingTransactions = false }
     },
-    async fetchAddons() {
+    async fetchDedicatedNumbers() {
       try {
         const { data: { session } } = await supabase.auth.getSession()
         const userId = session?.user?.id || null
         if (!userId) return
-        const { data, error } = await supabase.from('user_addons').select('addon_key,value,created_at').eq('user_id', userId)
-        if (!error && Array.isArray(data)) this.addons = data
+        const { data, error } = await supabase.from('user_dedicated_numbers').select('id,number,country_code,created_at').eq('user_id', userId)
+        if (!error && Array.isArray(data)) this.dedicatedNumbers = data
       } catch (e) {
-        console.error('fetchAddons error', e)
+        console.error('fetchDedicatedNumbers error', e)
       }
+    },
+
+    async fetchPendingRequests() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        const userId = session?.user?.id || null
+        if (!userId) return
+        const { data, error } = await supabase.from('dedicated_number_requests').select('id,country_code,status,created_at').eq('user_id', userId).order('created_at', { ascending: false })
+        if (!error && Array.isArray(data)) this.pendingRequests = data
+      } catch (e) {
+        console.error('fetchPendingRequests error', e)
+      }
+    },
+
+    async submitDedicatedRequest() {
+      try {
+        if (!this.requestCountry || String(this.requestCountry).trim() === '') {
+          this.requestMessage = 'Veuillez indiquer un code pays (ex: FR)'
+          return
+        }
+        this.requestLoading = true
+        this.requestMessage = ''
+        const token = (await supabase.auth.getSession())?.data?.session?.access_token
+        if (!token) {
+          this.requestMessage = 'Vous devez être connecté pour faire une demande.'
+          this.requestLoading = false
+          return
+        }
+        const resp = await fetch('/api/dedicated-number-requests', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ country_code: String(this.requestCountry).trim() })
+        })
+        const json = await resp.json()
+        if (resp.ok && json.ok) {
+          this.requestMessage = 'Demande envoyée — elle sera traitée par un administrateur.'
+          this.requestCountry = ''
+          await this.fetchPendingRequests()
+        } else {
+          this.requestMessage = json?.error || 'Erreur lors de la création de la demande.'
+        }
+      } catch (e) {
+        console.error('submitDedicatedRequest error', e)
+        this.requestMessage = e?.message || String(e)
+      } finally { this.requestLoading = false }
     },
     goToPricing() { this.$router.push('/pricing') }
   }

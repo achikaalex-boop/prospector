@@ -449,26 +449,105 @@ app.get('/api/admin/check', async (req, res) => {
   }
 })
 
-// Admin endpoint: grant addon to user
-app.post('/api/admin/grant-addon', async (req, res) => {
+// Public endpoint: request a dedicated number (user must be authenticated via Authorization Bearer token)
+app.post('/api/dedicated-number-requests', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Supabase not configured' })
+    const auth = req.headers['authorization'] || null
+    if (!auth) return res.status(401).json({ error: 'not_authenticated' })
+    const token = String(auth).split(' ')[1]
+    const { data: userResp, error: userErr } = await supabase.auth.getUser(token)
+    const user = userResp?.user || null
+    if (userErr || !user) return res.status(401).json({ error: 'not_authenticated' })
+
+    const { country_code } = req.body || {}
+    if (!country_code) return res.status(400).json({ error: 'country_code_required' })
+
+    const row = { user_id: user.id, country_code: String(country_code).trim().toUpperCase(), status: 'pending' }
+    const { data, error } = await supabase.from('dedicated_number_requests').insert([row]).select().single()
+    if (error) return res.status(500).json({ error })
+    return res.json({ ok: true, request: data })
+  } catch (e) {
+    console.error('Error in /api/dedicated-number-requests:', e)
+    return res.status(500).json({ error: 'internal' })
+  }
+})
+
+// Admin endpoint: list pending dedicated-number requests
+app.get('/api/admin/dedicated-number-requests', async (req, res) => {
   try {
     if (!supabase) return res.status(500).json({ error: 'Supabase not configured' })
     const ok = await isRequestAdmin(req)
     if (!ok) return res.status(403).json({ error: 'admin_only' })
-    const { user_id, addon_key, value } = req.body || {}
-    if (!user_id || !addon_key) return res.status(400).json({ error: 'user_id and addon_key required' })
-    try {
-      // upsert into user_addons
-      const row = { user_id, addon_key, value: value || null }
-      const { data, error } = await supabase.from('user_addons').upsert(row, { onConflict: ['user_id','addon_key'] })
-      if (error) return res.status(500).json({ error })
-      return res.json({ ok: true, addon: data })
-    } catch (e) {
-      console.error('grant-addon error:', e)
-      return res.status(500).json({ error: e?.message || e })
-    }
+    const { data, error } = await supabase.from('dedicated_number_requests').select('*').order('created_at', { ascending: false })
+    if (error) return res.status(500).json({ error })
+    return res.json({ ok: true, requests: data })
   } catch (e) {
-    console.error('Error in /api/admin/grant-addon:', e)
+    console.error('Error in /api/admin/dedicated-number-requests:', e)
+    return res.status(500).json({ error: 'internal' })
+  }
+})
+
+// Admin endpoint: approve a request and assign a number
+app.post('/api/admin/approve-dedicated-number', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Supabase not configured' })
+    const ok = await isRequestAdmin(req)
+    if (!ok) return res.status(403).json({ error: 'admin_only' })
+    const { request_id, assigned_number } = req.body || {}
+    if (!request_id || !assigned_number) return res.status(400).json({ error: 'request_id_and_assigned_number_required' })
+
+    // fetch request
+    const { data: reqRow, error: rErr } = await supabase.from('dedicated_number_requests').select('*').eq('id', request_id).limit(1).single()
+    if (rErr || !reqRow) return res.status(404).json({ error: 'request_not_found' })
+
+    // upsert assigned number into user_dedicated_numbers
+    const userRow = { user_id: reqRow.user_id, number: String(assigned_number).trim(), country_code: reqRow.country_code }
+    const { data: upserted, error: upErr } = await supabase.from('user_dedicated_numbers').insert([userRow]).select().single()
+    if (upErr) return res.status(500).json({ error: upErr })
+
+    // update request status
+    await supabase.from('dedicated_number_requests').update({ status: 'approved', assigned_number: String(assigned_number).trim(), processed_at: new Date().toISOString() }).eq('id', request_id)
+
+    return res.json({ ok: true, assigned: upserted })
+  } catch (e) {
+    console.error('Error in /api/admin/approve-dedicated-number:', e)
+    return res.status(500).json({ error: 'internal' })
+  }
+})
+
+// Admin endpoint: reject a request
+app.post('/api/admin/reject-dedicated-number', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Supabase not configured' })
+    const ok = await isRequestAdmin(req)
+    if (!ok) return res.status(403).json({ error: 'admin_only' })
+    const { request_id } = req.body || {}
+    if (!request_id) return res.status(400).json({ error: 'request_id_required' })
+    await supabase.from('dedicated_number_requests').update({ status: 'rejected', processed_at: new Date().toISOString() }).eq('id', request_id)
+    return res.json({ ok: true })
+  } catch (e) {
+    console.error('Error in /api/admin/reject-dedicated-number:', e)
+    return res.status(500).json({ error: 'internal' })
+  }
+})
+
+// Public endpoint: list dedicated numbers for the authenticated user
+app.get('/api/user/dedicated-numbers', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Supabase not configured' })
+    const auth = req.headers['authorization'] || null
+    if (!auth) return res.status(401).json({ error: 'not_authenticated' })
+    const token = String(auth).split(' ')[1]
+    const { data: userResp, error: userErr } = await supabase.auth.getUser(token)
+    const user = userResp?.user || null
+    if (userErr || !user) return res.status(401).json({ error: 'not_authenticated' })
+
+    const { data, error } = await supabase.from('user_dedicated_numbers').select('*').eq('user_id', user.id)
+    if (error) return res.status(500).json({ error })
+    return res.json({ ok: true, numbers: data })
+  } catch (e) {
+    console.error('Error in /api/user/dedicated-numbers:', e)
     return res.status(500).json({ error: 'internal' })
   }
 })

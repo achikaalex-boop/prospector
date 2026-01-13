@@ -12,17 +12,22 @@
       <div v-if="adminStatus && adminStatus.initialized === false" class="mb-4 text-sm text-gray-600">Administration non initialisée. Vous pouvez <router-link to="/admin">initialiser</router-link> un compte admin.</div>
       <div v-if="adminStatus && adminStatus.admin_email" class="mb-4 text-sm text-gray-600">Compte admin: <strong>{{ adminStatus.admin_email }}</strong></div>
         <div class="mb-4 bg-white p-4 rounded shadow">
-          <h3 class="font-semibold mb-2">Accorder un add-on à un utilisateur</h3>
-          <div class="grid grid-cols-3 gap-2">
-            <input v-model="addonForm.user_id" placeholder="user_id" class="p-2 border rounded col-span-1" />
-            <select v-model="addonForm.addon_key" class="p-2 border rounded col-span-1">
-              <option value="dedicated_number">dedicated_number</option>
-              <option value="extra_concurrency">extra_concurrency</option>
-            </select>
-            <input v-model="addonForm.value" placeholder="value (json)" class="p-2 border rounded col-span-1" />
-          </div>
-          <div class="mt-2">
-            <button @click="grantAddon" class="bg-blue-600 text-white px-3 py-1 rounded">Accorder add-on</button>
+          <h3 class="font-semibold mb-2">Demandes de numéro dédié</h3>
+          <div v-if="requestsLoading">Chargement...</div>
+          <div v-else>
+            <div v-if="dedicatedRequests.length === 0" class="text-sm text-gray-500">Aucune demande en attente.</div>
+            <ul v-else class="text-sm">
+              <li v-for="r in dedicatedRequests" :key="r.id" class="py-2 border-b flex justify-between items-center">
+                <div>
+                  <div class="font-medium">{{ r.user_id }} — {{ r.country_code }}</div>
+                  <div class="text-xs text-gray-500">Envoyée: {{ formatDate(r.created_at) }} — Statut: {{ r.status }}</div>
+                </div>
+                <div class="flex gap-2">
+                  <button @click="approveRequest(r)" class="bg-green-600 text-white px-3 py-1 rounded">Approuver</button>
+                  <button @click="rejectRequest(r)" class="px-3 py-1 border rounded">Rejeter</button>
+                </div>
+              </li>
+            </ul>
           </div>
         </div>
 
@@ -85,7 +90,7 @@ import Message from 'primevue/message'
 export default {
   name: 'AdminPlans',
   components: { Message },
-  data() { return { plans: [], loading: true, editable: {}, supportEmail: '', supportLoading: false, adminEmailInput: '', adminPasswordInput: '', pageError: null, adminStatus: null } },
+  data() { return { plans: [], loading: true, editable: {}, supportEmail: '', supportLoading: false, adminEmailInput: '', adminPasswordInput: '', pageError: null, adminStatus: null, dedicatedRequests: [], requestsLoading: false } },
   async created() {
     // ensure admin access (supports admin token stored in localStorage)
     try {
@@ -104,7 +109,7 @@ export default {
       return
     }
     await this.load()
-    this.addonForm = { user_id: '', addon_key: 'dedicated_number', value: '' }
+    await this.loadDedicatedRequests()
     await this.fetchSupportEmail()
     try {
       const status = await axios.get('/api/admin/status')
@@ -158,20 +163,7 @@ export default {
       } catch (e) { console.error(e); this.$toast.add({ severity: 'error', summary: 'Erreur', detail: e?.response?.data?.error || e.message || String(e), life: 8000 }) }
     }
     ,
-    async grantAddon() {
-      try {
-        const token = localStorage.getItem('admin_token')
-        const headers = token ? { 'x-admin-token': token } : {}
-        const body = { user_id: this.addonForm.user_id, addon_key: this.addonForm.addon_key, value: this.addonForm.value ? JSON.parse(this.addonForm.value) : null }
-        const resp = await axios.post('/api/admin/grant-addon', body, { headers })
-        if (resp.data && resp.data.ok) {
-          this.$toast.add({ severity: 'success', summary: 'OK', detail: 'Add-on accordé', life: 4000 })
-          this.addonForm = { user_id: '', addon_key: 'dedicated_number', value: '' }
-        } else {
-          this.$toast.add({ severity: 'error', summary: 'Erreur', detail: 'Échec', life: 6000 })
-        }
-      } catch (e) { console.error(e); this.$toast.add({ severity: 'error', summary: 'Erreur', detail: e?.response?.data?.error || e.message || String(e), life: 8000 }) }
-    },
+
 
     async fetchSupportEmail() {
       this.supportLoading = true
@@ -210,6 +202,51 @@ export default {
       this.pageError = null
       // simple re-run: reload the page (or re-run created logic by pushing to self)
       this.$router.replace({ path: this.$route.path, query: Object.assign({}, this.$route.query, { t: Date.now() }) })
+    },
+
+    formatDate(d) { try { return new Date(d).toLocaleString() } catch (e) { return d } },
+
+    // Dedicated numbers admin actions
+    async loadDedicatedRequests() {
+      this.requestsLoading = true
+      try {
+        const token = localStorage.getItem('admin_token')
+        const headers = token ? { 'x-admin-token': token } : {}
+        const resp = await axios.get('/api/admin/dedicated-number-requests', { headers })
+        this.dedicatedRequests = (resp.data && resp.data.requests) ? resp.data.requests : []
+      } catch (e) {
+        console.error('loadDedicatedRequests failed', e)
+        this.dedicatedRequests = []
+      } finally { this.requestsLoading = false }
+    },
+
+    async approveRequest(r) {
+      try {
+        const assigned = window.prompt('Numéro à attribuer (E.164), ex: +33123456789')
+        if (!assigned) return
+        const token = localStorage.getItem('admin_token')
+        const headers = token ? { 'x-admin-token': token } : {}
+        const resp = await axios.post('/api/admin/approve-dedicated-number', { request_id: r.id, assigned_number: assigned }, { headers })
+        if (resp.data && resp.data.ok) {
+          this.$toast.add({ severity: 'success', summary: 'OK', detail: 'Numéro attribué', life: 4000 })
+          await this.loadDedicatedRequests()
+        } else {
+          this.$toast.add({ severity: 'error', summary: 'Erreur', detail: 'Échec', life: 6000 })
+        }
+      } catch (e) { console.error(e); this.$toast.add({ severity: 'error', summary: 'Erreur', detail: e?.response?.data?.error || e.message || String(e), life: 8000 }) }
+    },
+
+    async rejectRequest(r) {
+      try {
+        if (!window.confirm('Confirmer le rejet de la demande ?')) return
+        const token = localStorage.getItem('admin_token')
+        const headers = token ? { 'x-admin-token': token } : {}
+        const resp = await axios.post('/api/admin/reject-dedicated-number', { request_id: r.id }, { headers })
+        if (resp.data && resp.data.ok) {
+          this.$toast.add({ severity: 'success', summary: 'OK', detail: 'Demande rejetée', life: 4000 })
+          await this.loadDedicatedRequests()
+        }
+      } catch (e) { console.error(e); this.$toast.add({ severity: 'error', summary: 'Erreur', detail: e?.response?.data?.error || e.message || String(e), life: 8000 }) }
     },
 
     async saveSupportEmail() {
