@@ -59,15 +59,11 @@
         </div>
 
         <div class="mt-4">
-          <template v-if="p.slug !== 'free'">
-            <div class="flex items-center gap-2">
-              <button @click="subscribe(p)" :disabled="isPlanActive(p) || isLoading" :class="(p.slug === 'pro' ? 'bg-white text-blue-700 px-4 py-2 rounded' : 'bg-blue-600 text-white px-4 py-2 rounded') + (isPlanActive(p) || isLoading ? ' opacity-50 cursor-not-allowed' : '')">{{ isPlanActive(p) ? 'Abonné' : 'S\'abonner' }}</button>
-
-            </div>
-          </template>
-          <template v-else>
-            <span class="px-4 py-2 border rounded text-sm text-gray-600">Plan gratuit</span>
-          </template>
+          <div class="flex items-center gap-2">
+            <button @click="subscribe(p)" :disabled="isPlanActive(p) || isLoading" :class="(p.slug === 'pro' ? 'bg-white text-blue-700 px-4 py-2 rounded' : (p.slug === 'free' ? 'bg-gray-100 text-gray-800 px-4 py-2 rounded' : 'bg-blue-600 text-white px-4 py-2 rounded')) + (isPlanActive(p) || isLoading ? ' opacity-50 cursor-not-allowed' : '')">
+              {{ isPlanActive(p) ? 'Abonné' : (p.slug === 'free' ? "Passer au gratuit" : "S'abonner") }}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -223,13 +219,42 @@ export default {
         const order = resp.data
         const link = (order?.links || []).find(l => l.rel === 'approve')
         this.approvalLink = link ? link.href : null
+        // If plan is free (0 cents) switch immediately via server-side change-plan
+        if (amountCents === 0) {
+          try {
+            if (!user_id) {
+              this.$toast.add({ severity: 'warn', summary: 'Connexion requise', detail: 'Veuillez vous connecter pour changer de plan.', life: 4000 })
+              this.$router.push({ name: 'Login' })
+              return
+            }
+            const resp = await axios.post('/api/change-plan', { user_id, plan_slug: plan.slug })
+            if (resp && resp.status >= 200 && resp.status < 300) {
+              this.$toast.add({ severity: 'success', summary: 'Abonnement', detail: `Vous êtes maintenant sur le plan ${plan.name}.`, life: 4000 })
+              // refresh active plan
+              await this.fetchActivePlan()
+              return
+            } else {
+              this.$toast.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de changer de plan.', life: 6000 })
+              return
+            }
+          } catch (e) {
+            console.error('change-plan error', e)
+            this.$toast.add({ severity: 'error', summary: 'Erreur', detail: e?.response?.data?.error || e.message || String(e), life: 8000 })
+            return
+          }
+        }
+
         if (!this.approvalLink) {
           this.$toast.add({ severity: 'error', summary: 'Erreur', detail: "Impossible d'obtenir le lien PayPal d'approbation", life: 6000 })
         } else {
           if (amountCents > (this.balanceCents || 0)) {
+            // show a short toast then redirect so user sees the message before navigation
             this.$toast.add({ severity: 'warn', summary: 'Solde insuffisant', detail: 'Votre solde est insuffisant pour ce plan. Vous serez redirigé vers PayPal pour compléter le paiement.', life: 6000 })
+            setTimeout(() => { window.location.href = this.approvalLink }, 700)
+          } else {
+            // enough balance — proceed to PayPal directly
+            window.location.href = this.approvalLink
           }
-          window.location.href = this.approvalLink
         }
       } catch (e) {
         throw e
