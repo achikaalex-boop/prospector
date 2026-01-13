@@ -51,6 +51,11 @@ const routes = [
   }
   ,
   {
+    path: '/admin',
+    name: 'AdminLogin',
+    component: () => import('../views/Admin/Login.vue')
+  },
+  {
     path: '/admin/calls-audit',
     name: 'AdminCallsAudit',
     component: () => import('../views/Admin/CallsAudit.vue'),

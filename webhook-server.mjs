@@ -110,6 +110,38 @@ async function getUserPlanSlug(userId) {
   }
 }
 
+async function getAppSetting(key) {
+  try {
+    const { data, error } = await supabase.from('app_settings').select('value').eq('key', key).limit(1).single()
+    if (error) return null
+    return data ? data.value : null
+  } catch (e) {
+    return null
+  }
+}
+
+function hashPasswordSync(password) {
+  const salt = crypto.randomBytes(16).toString('hex')
+  const iterations = 100000
+  const hash = crypto.pbkdf2Sync(password, salt, iterations, 64, 'sha256').toString('hex')
+  return `${iterations}:${salt}:${hash}`
+}
+
+function verifyPasswordSync(password, stored) {
+  if (!stored) return false
+  try {
+    const parts = String(stored).split(':')
+    if (parts.length !== 3) return false
+    const iterations = Number(parts[0])
+    const salt = parts[1]
+    const hash = parts[2]
+    const derived = crypto.pbkdf2Sync(password, salt, iterations, 64, 'sha256').toString('hex')
+    return derived === hash
+  } catch (e) {
+    return false
+  }
+}
+
 async function isRequestAdmin(req) {
   // 1) allow if server running with service role key
   if (serviceRoleKey) return true
@@ -121,16 +153,28 @@ async function isRequestAdmin(req) {
   // 3) check authorization bearer token and match email against ADMIN_EMAILS
   try {
     const auth = req.headers['authorization'] || req.headers['Authorization'] || null
-    if (!auth) return false
-    const token = String(auth).split(' ')[1]
-    if (!token) return false
-    // Use Supabase auth to resolve token
-    const { data, error } = await supabase.auth.getUser(token)
-    const user = data?.user || null
-    if (!user) return false
-    const email = (user.email || '').toLowerCase()
-    if (ADMIN_EMAILS.some(e => e.toLowerCase() === email)) return true
+    if (auth) {
+      const token = String(auth).split(' ')[1]
+      if (token) {
+        const { data, error } = await supabase.auth.getUser(token)
+        const user = data?.user || null
+        if (user) {
+          const email = (user.email || '').toLowerCase()
+          if (ADMIN_EMAILS.some(e => e.toLowerCase() === email)) return true
+        }
+      }
+    }
   } catch (e) {}
+
+  // 4) allow if admin token header matches stored token in DB
+  try {
+    const token = req.headers['x-admin-token'] || req.headers['x_admin_token'] || null
+    if (token) {
+      const stored = await getAppSetting('admin_token')
+      if (stored && String(stored) === String(token)) return true
+    }
+  } catch (e) {}
+
   return false
 }
 
@@ -425,6 +469,54 @@ app.post('/api/admin/grant-addon', async (req, res) => {
     }
   } catch (e) {
     console.error('Error in /api/admin/grant-addon:', e)
+    return res.status(500).json({ error: 'internal' })
+  }
+})
+
+// Admin login (email + password stored in app_settings)
+app.post('/api/admin/login', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Supabase not configured' })
+    const { email, password } = req.body || {}
+    if (!email || !password) return res.status(400).json({ error: 'email_and_password_required' })
+    const storedEmail = await getAppSetting('admin_email')
+    const storedHash = await getAppSetting('admin_password_hash')
+    if (!storedEmail) return res.status(400).json({ error: 'admin_not_configured' })
+    if (!storedHash || String(storedHash).trim() === '') return res.status(400).json({ error: 'admin_not_initialized' })
+    if (String(email).toLowerCase() !== String(storedEmail).toLowerCase()) return res.status(403).json({ error: 'invalid_credentials' })
+    if (!verifyPasswordSync(password, storedHash)) return res.status(403).json({ error: 'invalid_credentials' })
+    // success: generate token and store in app_settings
+    const token = crypto.randomBytes(32).toString('hex')
+    const { data, error } = await supabase.from('app_settings').upsert([{ key: 'admin_token', value: token }], { onConflict: ['key'] })
+    if (error) return res.status(500).json({ error })
+    return res.json({ ok: true, token })
+  } catch (e) {
+    console.error('Error in /api/admin/login:', e)
+    return res.status(500).json({ error: 'internal' })
+  }
+})
+
+// Admin: set or change admin credentials
+app.post('/api/admin/set-admin-credentials', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Supabase not configured' })
+    const { email, password } = req.body || {}
+    if (!email || !password) return res.status(400).json({ error: 'email_and_password_required' })
+
+    // allow if no password set (initialization) or requester is admin
+    const currentHash = await getAppSetting('admin_password_hash')
+    let ok = false
+    if (!currentHash || String(currentHash).trim() === '') ok = true
+    else ok = await isRequestAdmin(req)
+    if (!ok) return res.status(403).json({ error: 'admin_only' })
+
+    const hash = hashPasswordSync(password)
+    const rows = [ { key: 'admin_email', value: email }, { key: 'admin_password_hash', value: hash } ]
+    const { data, error } = await supabase.from('app_settings').upsert(rows, { onConflict: ['key'] })
+    if (error) return res.status(500).json({ error })
+    return res.json({ ok: true })
+  } catch (e) {
+    console.error('Error in /api/admin/set-admin-credentials:', e)
     return res.status(500).json({ error: 'internal' })
   }
 })

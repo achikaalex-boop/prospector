@@ -18,6 +18,19 @@
           </div>
         </div>
 
+        <div class="mb-4 bg-white p-4 rounded shadow">
+          <h3 class="font-semibold mb-2">Sécurité admin</h3>
+          <p class="text-sm text-gray-600">Changez l'email et le mot de passe administrateur ci-dessous.</p>
+          <label class="text-xs">Email admin</label>
+          <input v-model="adminEmailInput" placeholder="admin@..." class="w-full p-2 border rounded mb-2" />
+          <label class="text-xs">Nouveau mot de passe</label>
+          <input v-model="adminPasswordInput" type="password" placeholder="mot de passe" class="w-full p-2 border rounded mb-2" />
+          <div class="flex gap-2">
+            <button @click="saveAdminCredentials" class="bg-green-600 text-white px-3 py-1 rounded">Enregistrer identifiants</button>
+            <button @click="clearAdminToken" class="px-3 py-1 border rounded">Déconnecter session admin</button>
+          </div>
+        </div>
+
       <div class="mb-4 bg-white p-4 rounded shadow">
         <h3 class="font-semibold mb-2">Configuration</h3>
         <label class="text-xs">Email support</label>
@@ -57,19 +70,22 @@ import axios from 'axios'
 import { supabase } from '../../lib/supabase'
 export default {
   name: 'AdminPlans',
-  data() { return { plans: [], loading: true, editable: {}, supportEmail: '', supportLoading: false } },
+  data() { return { plans: [], loading: true, editable: {}, supportEmail: '', supportLoading: false, adminEmailInput: '', adminPasswordInput: '' } },
   async created() {
-    // ensure admin access
+    // ensure admin access (supports admin token stored in localStorage)
     try {
-      const resp = await axios.get('/api/admin/check')
+      const token = localStorage.getItem('admin_token')
+      const headers = token ? { 'x-admin-token': token } : {}
+      const resp = await axios.get('/api/admin/check', { headers })
       if (!resp.data || !resp.data.ok) {
         this.$toast.add({ severity: 'warn', summary: 'Accès refusé', detail: 'Accès administrateur requis', life: 4000 })
-        this.$router.push('/')
+        this.$router.push('/admin')
         return
       }
+      if (token) axios.defaults.headers.common['x-admin-token'] = token
     } catch (e) {
       this.$toast.add({ severity: 'warn', summary: 'Accès refusé', detail: 'Accès administrateur requis', life: 4000 })
-      this.$router.push('/')
+      this.$router.push('/admin')
       return
     }
     await this.load()
@@ -118,8 +134,10 @@ export default {
     ,
     async grantAddon() {
       try {
+        const token = localStorage.getItem('admin_token')
+        const headers = token ? { 'x-admin-token': token } : {}
         const body = { user_id: this.addonForm.user_id, addon_key: this.addonForm.addon_key, value: this.addonForm.value ? JSON.parse(this.addonForm.value) : null }
-        const resp = await axios.post('/api/admin/grant-addon', body)
+        const resp = await axios.post('/api/admin/grant-addon', body, { headers })
         if (resp.data && resp.data.ok) {
           this.$toast.add({ severity: 'success', summary: 'OK', detail: 'Add-on accordé', life: 4000 })
           this.addonForm = { user_id: '', addon_key: 'dedicated_number', value: '' }
@@ -140,9 +158,33 @@ export default {
       } finally { this.supportLoading = false }
     },
 
+    async saveAdminCredentials() {
+      try {
+        const token = localStorage.getItem('admin_token')
+        const headers = token ? { 'x-admin-token': token } : {}
+        const resp = await axios.post('/api/admin/set-admin-credentials', { email: this.adminEmailInput, password: this.adminPasswordInput }, { headers })
+        if (resp.data && resp.data.ok) {
+          this.$toast.add({ severity: 'success', summary: 'Enregistré', detail: 'Identifiants admin mis à jour', life: 4000 })
+        } else {
+          this.$toast.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de mettre à jour', life: 6000 })
+        }
+      } catch (e) {
+        console.error('saveAdminCredentials failed', e)
+        this.$toast.add({ severity: 'error', summary: 'Erreur', detail: e?.response?.data?.error || e.message || String(e), life: 8000 })
+      }
+    },
+
+    clearAdminToken() {
+      localStorage.removeItem('admin_token')
+      delete axios.defaults.headers.common['x-admin-token']
+      this.$toast.add({ severity: 'info', summary: 'Déconnecté', detail: 'Session admin déconnectée localement', life: 3000 })
+    }
+
     async saveSupportEmail() {
       try {
-        const resp = await axios.post('/api/admin/app-settings', { key: 'support_email', value: this.supportEmail })
+        const token = localStorage.getItem('admin_token')
+        const headers = token ? { 'x-admin-token': token } : {}
+        const resp = await axios.post('/api/admin/app-settings', { key: 'support_email', value: this.supportEmail }, { headers })
         if (resp.data && resp.data.ok) {
           this.$toast.add({ severity: 'success', summary: 'Enregistré', detail: 'Email de support mis à jour', life: 4000 })
         } else {
