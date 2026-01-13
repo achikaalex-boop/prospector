@@ -27,7 +27,13 @@
       <!-- Monthly campaign usage / limits -->
       <div class="mb-4">
         <div v-if="monthlyLimit > 0">
-          <div v-if="remainingSlots === 0" class="text-sm text-red-600">Vous avez atteint votre limite de {{ monthlyLimit }} campagnes ce mois (plan: {{ selectedPlan }}). Passez à un plan payant pour lancer davantage de campagnes.</div>
+          <div v-if="remainingSlots === 0" class="text-sm text-red-600">
+            <strong>Vous avez atteint la limite de {{ monthlyLimit }} campagnes pour ce mois.</strong>
+            Passez à un plan payant pour supprimer cette limite.
+            <div class="mt-2">
+              <button @click="$router.push('/pricing')" class="bg-blue-600 text-white px-3 py-1 rounded text-sm">Voir les plans</button>
+            </div>
+          </div>
           <div v-else class="text-sm text-gray-700">Campagnes ce mois: {{ monthlyCount }} / {{ monthlyLimit }} — il vous reste {{ remainingSlots }}.</div>
         </div>
       </div>
@@ -511,6 +517,17 @@ const loadUserNumbers = async () => {
 
 onMounted(() => { loadMonthlyCount(); loadUserNumbers() })
 
+// Show a user-visible toast when user reaches monthly campaign limit (once per change)
+watch(remainingSlots, (val) => {
+  if (val === 0 && monthlyLimit.value > 0 && !limitReachedToastShown.value) {
+    const msg = monthlyLimit.value ? `Vous avez atteint la limite de ${monthlyLimit.value} campagnes pour ce mois. Passez à un plan payant pour supprimer cette limite.` : 'Vous avez atteint la limite de campagnes pour ce mois. Passez à un plan payant pour supprimer cette limite.'
+    try { toast.add({ severity: 'warn', summary: 'Limite atteinte', detail: msg, life: 8000 }) } catch (e) {}
+    limitReachedToastShown.value = true
+  } else if (val > 0) {
+    limitReachedToastShown.value = false
+  }
+})
+
 const timezoneOptions = [
   { label: 'Africa/Porto-Novo', value: 'Africa/Porto-Novo' },
   { label: 'Africa/Cairo', value: 'Africa/Cairo' },
@@ -573,6 +590,7 @@ const estimatedAvgCallSeconds = ref(60)
 const estimate = ref(null)
 
 const monthlyCount = ref(0)
+const limitReachedToastShown = ref(false)
 
 const selectedPlanObj = computed(() => plans.value.find(p => p.slug === selectedPlan.value) || null)
 const monthlyLimit = computed(() => Number(selectedPlanObj.value?.monthly_campaign_limit || 0))
@@ -735,6 +753,14 @@ const handleSubmit = async () => {
     const msg = `Veuillez renseigner les champs obligatoires : ${missing.join(', ')}`
     error.value = msg
     try { toast.add({ severity: 'warn', summary: 'Champs manquants', detail: msg, life: 6000 }) } catch (e) {}
+    return
+  }
+
+  // Prevent submission when user has reached the monthly campaign limit
+  if (monthlyLimit.value > 0 && remainingSlots.value === 0) {
+    const msg = monthlyLimit.value ? `Vous avez atteint la limite de ${monthlyLimit.value} campagnes pour ce mois. Passez à un plan payant pour supprimer cette limite.` : 'Vous avez atteint la limite de campagnes pour ce mois. Passez à un plan payant pour supprimer cette limite.'
+    error.value = msg
+    try { toast.add({ severity: 'warn', summary: 'Limite atteinte', detail: msg, life: 8000 }) } catch (e) {}
     return
   }
 
