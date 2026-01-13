@@ -1,0 +1,1 @@
+import{a as n}from"./index-B9ygI19o.js";async function e(r,s="USD",t="Top-up",a=null){const o={amount_cents:r,currency:s,description:t};return a&&(o.user_id=a),(await n.post("/api/topup",o)).data}async function i(r,s,t=null){const a={orderID:r,user_id:s};return t&&(a.plan_slug=t),(await n.post("/api/paypal/capture",a).catch(p=>{throw p})).data}export{e as a,i as c};

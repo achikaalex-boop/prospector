@@ -178,7 +178,7 @@ export default {
       localStorage.removeItem('admin_token')
       delete axios.defaults.headers.common['x-admin-token']
       this.$toast.add({ severity: 'info', summary: 'Déconnecté', detail: 'Session admin déconnectée localement', life: 3000 })
-    }
+    },
 
     async saveSupportEmail() {
       try {
