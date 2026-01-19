@@ -266,6 +266,7 @@
                   <p><strong>Contact:</strong> {{ selectedResult.contact_name || selectedResult.contact_phone }}</p>
                   <p><strong>Statut:</strong> {{ selectedResult.status }}</p>
                   <p><strong>Durée:</strong> {{ selectedResult.call_duration }}s</p>
+                  <p v-if="selectedResult.raw_payload?.call_analysis?.call_summary" class="mt-3 p-2 bg-blue-50 rounded text-sm"><strong>Résumé de l'appel:</strong> {{ selectedResult.raw_payload.call_analysis.call_summary }}</p>
                 </div>
                 <div class="flex items-center gap-2">
                   <Button label="Copier JSON" icon="pi pi-copy" class="p-button-sm" @click="copyRawJson" />
@@ -282,13 +283,13 @@
                   <Message severity="warn" text="Problème détecté lors de la transcription — le rendu peut être incomplet." />
                 </div>
                 <div v-if="conversation && conversation.length">
-                  <div class="space-y-3 max-h-64 overflow-auto p-2 bg-white rounded border">
-                    <div v-for="(turn, idx) in conversation" :key="idx" class="p-2 rounded">
-                      <div class="flex items-center gap-2 mb-1">
-                        <Tag :value="turn.speaker" severity="secondary" />
-                        <span class="text-sm text-gray-600">{{ turn.time || '' }}</span>
+                  <div class="space-y-3 max-h-64 overflow-auto p-3 bg-gray-50 rounded border text-sm">
+                    <div v-for="(turn, idx) in conversation" :key="idx" class="pb-3 border-b last:border-b-0">
+                      <div class="font-semibold text-gray-900 mb-1">
+                        {{ turn.speaker }}
+                        <span v-if="turn.time" class="text-xs text-gray-500 font-normal">({{ turn.time }})</span>
                       </div>
-                      <div class="text-sm text-gray-800">{{ turn.text }}</div>
+                      <div class="text-gray-700 whitespace-pre-wrap">{{ turn.text }}</div>
                     </div>
                   </div>
                 </div>
