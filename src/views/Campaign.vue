@@ -500,17 +500,6 @@ const loadUserNumbers = async () => {
 
 onMounted(() => { loadMonthlyCount(); loadUserNumbers() })
 
-// Show a user-visible toast when user reaches monthly campaign limit (once per change)
-watch(remainingSlots, (val) => {
-  if (val === 0 && monthlyLimit.value > 0 && !limitReachedToastShown.value) {
-    const msg = monthlyLimit.value ? `Vous avez atteint la limite de ${monthlyLimit.value} campagnes pour ce mois. Passez à un plan payant pour supprimer cette limite.` : 'Vous avez atteint la limite de campagnes pour ce mois. Passez à un plan payant pour supprimer cette limite.'
-    try { toast.add({ severity: 'warn', summary: 'Limite atteinte', detail: msg, life: 8000 }) } catch (e) {}
-    limitReachedToastShown.value = true
-  } else if (val > 0) {
-    limitReachedToastShown.value = false
-  }
-})
-
 const timezoneOptions = [
   { label: 'Africa/Porto-Novo', value: 'Africa/Porto-Novo' },
   { label: 'Africa/Cairo', value: 'Africa/Cairo' },
@@ -604,34 +593,6 @@ const objectifsOptions = [
   { label: 'Demande d\'information', value: 'Demande d\'information' }
 ]
 
-const formData = reactive({
-  company_name: '',
-  domain: '',
-  domain_custom: '',
-  promesse_de_valeur: '',
-  confidence_threshold: 0.7,
-  agent_name: 'Julie',
-  referral_name: '',
-  infos: '',
-  objectifs: '',
-  contact_first_name: '',
-  decision_maker_name: '',
-  decision_committee: [],
-  from_number: '+14752906147',
-  pain_point_identifie: '',
-  country: '',
-  timezone: 'Africa/Porto-Novo'
-})
-
-// Computed property: fuseaux horaires disponibles basés sur le pays sélectionné
-const availableTimezones = computed(() => {
-  if (!formData.country || !countryTimezoneMap[formData.country]) {
-    return timezoneOptions
-  }
-  const tzValues = countryTimezoneMap[formData.country]
-  return timezoneOptions.filter(tz => tzValues.includes(tz.value))
-})
-
 // Pricing estimator state
 const plans = ref([])
 const selectedPlan = ref('starter')
@@ -644,6 +605,17 @@ const limitReachedToastShown = ref(false)
 const selectedPlanObj = computed(() => plans.value.find(p => p.slug === selectedPlan.value) || null)
 const monthlyLimit = computed(() => Number(selectedPlanObj.value?.monthly_campaign_limit || 0))
 const remainingSlots = computed(() => Math.max(0, monthlyLimit.value - (monthlyCount.value || 0)))
+
+// Show a user-visible toast when user reaches monthly campaign limit (once per change)
+watch(remainingSlots, (val) => {
+  if (val === 0 && monthlyLimit.value > 0 && !limitReachedToastShown.value) {
+    const msg = monthlyLimit.value ? `Vous avez atteint la limite de ${monthlyLimit.value} campagnes pour ce mois. Passez à un plan payant pour supprimer cette limite.` : 'Vous avez atteint la limite de campagnes pour ce mois. Passez à un plan payant pour supprimer cette limite.'
+    try { toast.add({ severity: 'warn', summary: 'Limite atteinte', detail: msg, life: 8000 }) } catch (e) {}
+    limitReachedToastShown.value = true
+  } else if (val > 0) {
+    limitReachedToastShown.value = false
+  }
+})
 
 const loadMonthlyCount = async () => {
   try {
