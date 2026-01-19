@@ -84,6 +84,18 @@
                 </small>
               </div>
 
+              <div v-if="formData.domain === 'Autre'">
+                <label class="block mb-2 font-semibold text-gray-700"
+                  >Précisez votre secteur *</label
+                >
+                <InputText
+                  v-model="formData.domain_custom"
+                  placeholder="Ex : Santé, Agriculture, E-commerce..."
+                  class="w-full"
+                  required
+                />
+              </div>
+
               <div>
                 <label class="block mb-2 font-semibold text-gray-700"
                   >Promesse de valeur (bénéfice principal) *</label
@@ -207,27 +219,7 @@
                 />
               </div>
 
-              <div>
-                <label class="block mb-2 font-semibold text-gray-700"
-                  >Processus métier ciblé</label
-                >
-                <InputText
-                  v-model="formData.processus_metier"
-                  placeholder="Ex : la gestion locative, le recrutement..."
-                  class="w-full"
-                />
-              </div>
 
-              <div>
-                <label class="block mb-2 font-semibold text-gray-700"
-                  >Capacité clé à qualifier</label
-                >
-                <InputText
-                  v-model="formData.key_capability"
-                  placeholder="Ex : automatisation, conformité RGPD..."
-                  class="w-full"
-                />
-              </div>
 
               <div>
                 <label class="block mb-2 font-semibold text-gray-700"
@@ -258,15 +250,33 @@
               </div>
               <div>
                 <label class="block mb-2 font-semibold text-gray-700"
-                  >Fuseau horaire d'appel</label
+                  >Pays *</label
+                >
+                <Dropdown
+                  v-model="formData.country"
+                  :options="countryOptions"
+                  placeholder="Sélectionnez un pays"
+                  class="w-full"
+                  filter
+                  required
+                />
+                <small class="text-gray-500 text-sm mt-1 block">
+                  Utilisé pour adapter les salutations et les créneaux RDV
+                </small>
+              </div>
+
+              <div>
+                <label class="block mb-2 font-semibold text-gray-700"
+                  >Fuseau horaire d'appel *</label
                 >
                 <Dropdown
                   v-model="formData.timezone"
-                  :options="timezoneOptions"
+                  :options="availableTimezones"
                   optionLabel="label"
                   optionValue="value"
                   placeholder="Sélectionnez un fuseau horaire"
                   class="w-full"
+                  required
                 />
                 <small class="text-gray-500 text-sm mt-1 block"
                   >Sélectionnez le fuseau horaire pour la fenêtre
@@ -277,34 +287,7 @@
           </template>
         </Card>
 
-        <!-- Script d'appel personnalisé (Optionnel) -->
-        <Card class="mb-6 shadow-md border border-gray-200">
-          <template #title>
-            <div class="flex items-center gap-2">
-              <i class="pi pi-file-edit text-gray-700"></i>
-              <span class="text-gray-900 font-semibold"
-                >Script d'appel personnalisé (optionnel)</span
-              >
-            </div>
-          </template>
-          <template #content>
-            <div class="space-y-2">
-              <label class="block mb-2 font-semibold text-gray-700"
-                >Script d'exemple</label
-              >
-              <Textarea
-                v-model="formData.call_script_example"
-                placeholder="Collez ici votre script d'appel en suivant le template recommandé (ACCROCHE, DÉCOUVERTE, TRANSITION VALEUR, CLOSING)..."
-                rows="8"
-                class="w-full"
-              />
-              <small class="text-gray-500 text-sm mt-1 block">
-                Optionnel. Si laissé vide, l'agent utilisera un script généré
-                automatiquement à partir de vos variables.
-              </small>
-            </div>
-          </template>
-        </Card>
+
 
         <!-- Objectifs -->
         <Card class="mb-6 shadow-md border border-gray-200">
@@ -553,6 +536,65 @@ const timezoneOptions = [
   { label: 'UTC', value: 'UTC' }
 ]
 
+// Mapping pays -> fuseaux horaires
+const countryTimezoneMap = {
+  'Afghanistan': ['Asia/Kabul'],
+  'Albania': ['Europe/Tirane'],
+  'Algeria': ['Africa/Algiers'],
+  'Argentina': ['America/Argentina/Buenos_Aires'],
+  'Australia': ['Australia/Sydney', 'Australia/Melbourne', 'Australia/Brisbane', 'Australia/Perth', 'Australia/Adelaide'],
+  'Austria': ['Europe/Vienna'],
+  'Bahrain': ['Asia/Bahrain'],
+  'Bangladesh': ['Asia/Dhaka'],
+  'Belgium': ['Europe/Brussels'],
+  'Benin': ['Africa/Porto-Novo'],
+  'Brazil': ['America/Sao_Paulo', 'America/Rio_Branco'],
+  'Canada': ['America/Vancouver', 'America/Edmonton', 'America/Winnipeg', 'America/Toronto', 'America/Halifax'],
+  'China': ['Asia/Shanghai'],
+  'Denmark': ['Europe/Copenhagen'],
+  'Egypt': ['Africa/Cairo'],
+  'Finland': ['Europe/Helsinki'],
+  'France': ['Europe/Paris'],
+  'Germany': ['Europe/Berlin'],
+  'Ghana': ['Africa/Accra'],
+  'Greece': ['Europe/Athens'],
+  'Hong Kong': ['Asia/Hong_Kong'],
+  'India': ['Asia/Kolkata'],
+  'Indonesia': ['Asia/Jakarta'],
+  'Iran': ['Asia/Tehran'],
+  'Iraq': ['Asia/Baghdad'],
+  'Israel': ['Asia/Jerusalem'],
+  'Italy': ['Europe/Rome'],
+  'Japan': ['Asia/Tokyo'],
+  'Kenya': ['Africa/Nairobi'],
+  'Malaysia': ['Asia/Kuala_Lumpur'],
+  'Mexico': ['America/Mexico_City'],
+  'Netherlands': ['Europe/Amsterdam'],
+  'New Zealand': ['Pacific/Auckland'],
+  'Nigeria': ['Africa/Lagos'],
+  'Pakistan': ['Asia/Karachi'],
+  'Peru': ['America/Lima'],
+  'Philippines': ['Asia/Manila'],
+  'Poland': ['Europe/Warsaw'],
+  'Portugal': ['Europe/Lisbon'],
+  'Russia': ['Europe/Moscow', 'Asia/Vladivostok'],
+  'Saudi Arabia': ['Asia/Riyadh'],
+  'Singapore': ['Asia/Singapore'],
+  'South Africa': ['Africa/Johannesburg'],
+  'South Korea': ['Asia/Seoul'],
+  'Spain': ['Europe/Madrid'],
+  'Sweden': ['Europe/Stockholm'],
+  'Switzerland': ['Europe/Zurich'],
+  'Thailand': ['Asia/Bangkok'],
+  'Turkey': ['Europe/Istanbul'],
+  'UAE': ['Asia/Dubai'],
+  'United Kingdom': ['Europe/London'],
+  'United States': ['America/Los_Angeles', 'America/Denver', 'America/Chicago', 'America/New_York'],
+  'Vietnam': ['Asia/Ho_Chi_Minh']
+}
+
+const countryOptions = Object.keys(countryTimezoneMap).sort()
+
 const objectifsOptions = [
   { label: 'Prise de rendez-vous', value: 'Prise de rendez-vous' },
   { label: 'Qualification de prospects', value: 'Qualification de prospects' },
@@ -565,6 +607,7 @@ const objectifsOptions = [
 const formData = reactive({
   company_name: '',
   domain: '',
+  domain_custom: '',
   promesse_de_valeur: '',
   confidence_threshold: 0.7,
   agent_name: 'Julie',
@@ -573,14 +616,20 @@ const formData = reactive({
   objectifs: '',
   contact_first_name: '',
   decision_maker_name: '',
-  processus_metier: '',
-  key_capability: '',
-  call_script_example: ''
-  ,
   decision_committee: [],
   from_number: '+14752906147',
   pain_point_identifie: '',
+  country: '',
   timezone: 'Africa/Porto-Novo'
+})
+
+// Computed property: fuseaux horaires disponibles basés sur le pays sélectionné
+const availableTimezones = computed(() => {
+  if (!formData.country || !countryTimezoneMap[formData.country]) {
+    return timezoneOptions
+  }
+  const tzValues = countryTimezoneMap[formData.country]
+  return timezoneOptions.filter(tz => tzValues.includes(tz.value))
 })
 
 // Pricing estimator state
@@ -740,12 +789,18 @@ const handleSubmit = async () => {
     { key: 'promesse_de_valeur', label: 'Promesse de valeur' },
     { key: 'infos', label: 'Description entreprise / service' },
     { key: 'agent_name', label: "Nom de l'agent" },
-    { key: 'objectifs', label: 'Objectifs de Prospection' }
+    { key: 'objectifs', label: 'Objectifs de Prospection' },
+    { key: 'country', label: 'Pays' }
   ]
 
   const missing = requiredChecks
     .filter(r => !(formData[r.key] && String(formData[r.key]).trim().length > 0))
     .map(r => r.label)
+
+  // Si "Autre" est sélectionné, vérifier que domain_custom est rempli
+  if (formData.domain === 'Autre' && !(formData.domain_custom && String(formData.domain_custom).trim().length > 0)) {
+    missing.push('Précisez votre secteur')
+  }
 
   if (contacts.value.length === 0) missing.push('Fichier de contacts (CSV)')
 
@@ -778,7 +833,7 @@ const handleSubmit = async () => {
     const payload = {
       user_id: user.id,
       company_name: formData.company_name,
-      domain: formData.domain,
+      domain: formData.domain === 'Autre' ? formData.domain_custom : formData.domain,
       promesse_de_valeur: formData.promesse_de_valeur,
       confidence_threshold: formData.confidence_threshold || 0.7,
       agent_name: formData.agent_name,
@@ -789,7 +844,10 @@ const handleSubmit = async () => {
       contacts_count: contacts.value.length,
       estimated_avg_call_seconds: Number(estimatedAvgCallSeconds.value) || 60,
       from_number: formData.from_number,
-      timezone: formData.timezone
+      timezone: formData.timezone,
+      country: formData.country,
+      current_time_tz: `{{current_time_${formData.timezone}}}`,
+      current_calendar_tz: `{{current_calendar_${formData.timezone}}}`
     }
 
     try {

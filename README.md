@@ -173,9 +173,6 @@ Marie Martin,marie@example.com,+33698765432,Tech Solutions
 - `contact_first_name` : Prénom du prospect (défaut: "Monsieur/Madame")
 - `referral_name` : Nom du référent (warm calling)
 - `decision_maker_name` : Nom du décisionnaire
-- `processus_metier` : Processus métier ciblé
-- `key_capability` : Capacité clé à qualifier
-- `call_script_example` : Script d'exemple personnalisé (optionnel)
 
 ### Types d'Objectifs Disponibles
 1. "Prise de rendez-vous"

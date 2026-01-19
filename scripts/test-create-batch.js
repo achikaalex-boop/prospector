@@ -16,8 +16,6 @@ const payload = {
         infos: 'Prospect intéressé par automation',
         contact_first_name: 'Jean',
         referal_name: 'Marie Dupont',
-        key_capability: 'Automatisation intelligente des tâches répétitives',
-        call_script_example: 'Bonjour Jean, je suis Sophie de TechCorp Solutions...',
         pain_point_identifie: 'Perte de temps sur les tâches manuelles',
         campaign_id: 'test-campaign-123'
       }
@@ -34,8 +32,6 @@ const payload = {
         infos: 'A participé au webinar la semaine dernière',
         contact_first_name: 'Aminata',
         referal_name: 'Thomas Martin',
-        key_capability: 'Support client automatisé 24/7',
-        call_script_example: 'Bonjour Aminata, je suis Sophie de TechCorp Solutions...',
         pain_point_identifie: 'Surcharge du service client',
         campaign_id: 'test-campaign-123'
       }

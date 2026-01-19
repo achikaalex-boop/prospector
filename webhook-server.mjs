@@ -822,7 +822,9 @@ app.post('/api/create-campaign', async (req, res) => {
         contact_company: c.entreprise || null,
         contact_email: c.email || null,
         agent_name: campaignRow.agent_name,
-        company_name: campaignRow.company_name
+        company_name: campaignRow.company_name,
+        [payload.current_time_tz || `current_time_${payload.timezone}`]: true,
+        [payload.current_calendar_tz || `current_calendar_${payload.timezone}`]: true
       }
     }))
 
