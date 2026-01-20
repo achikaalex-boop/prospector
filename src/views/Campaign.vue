@@ -150,7 +150,7 @@
                 >
                 <Textarea
                   v-model="formData.infos"
-                  placeholder="Décrivez votre entreprise, vos services, vos produits (2-3 phrases max)..."
+                  placeholder="Décrivez votre entreprise, vos services, vos produits..."
                   rows="5"
                   class="w-full"
                   required
@@ -286,37 +286,44 @@
               </div>
               <div>
                 <label class="block mb-2 font-semibold text-gray-700"
-                  >Pays *</label
+                  ><i class="pi pi-asterisk text-red-500 text-xs mr-1"></i>Pays *</label
                 >
                 <Dropdown
                   v-model="formData.country"
                   :options="countryOptions"
-                  placeholder="Sélectionnez un pays"
+                  placeholder="Sélectionnez un pays (requis)"
                   class="w-full"
                   filter
                   required
+                  @change="$forceUpdate()"
                 />
-                <small class="text-gray-500 text-sm mt-1 block">
-                  Utilisé pour adapter les salutations et les créneaux RDV
+                <small class="text-gray-500 text-sm mt-1 block"
+                  >Le pays détermine les fuseaux horaires disponibles
                 </small>
               </div>
 
               <div>
                 <label class="block mb-2 font-semibold text-gray-700"
-                  >Fuseau horaire d'appel *</label
+                  ><i class="pi pi-asterisk text-red-500 text-xs mr-1"></i>Fuseau horaire d'appel *</label
                 >
                 <Dropdown
                   v-model="formData.timezone"
                   :options="availableTimezones"
+                  :disabled="!formData.country"
                   optionLabel="label"
                   optionValue="value"
-                  placeholder="Sélectionnez un fuseau horaire"
+                  :placeholder="formData.country ? 'Sélectionnez un fuseau horaire' : 'Choisissez d\'abord un pays'"
                   class="w-full"
                   required
                 />
-                <small class="text-gray-500 text-sm mt-1 block"
-                  >Sélectionnez le fuseau horaire pour la fenêtre
-                  d'appel.</small
+                <small v-if="!formData.country" class="text-orange-600 text-sm mt-1 block font-semibold">
+                  ⚠ Vous devez d'abord sélectionner un pays
+                </small>
+                <small v-else-if="availableTimezones.length === 1" class="text-green-600 text-sm mt-1 block">
+                  ✓ Fuseau horaire auto-sélectionné pour ce pays
+                </small>
+                <small v-else class="text-gray-500 text-sm mt-1 block"
+                  >Ce pays a {{ availableTimezones.length }} fuseaux horaires. Sélectionnez le vôtre.</small
                 >
               </div>
             </div>
@@ -640,7 +647,24 @@ const countryTimezoneMap = {
 
 const countryOptions = Object.keys(countryTimezoneMap).sort()
 
-const objectifsOptions = [
+const availableTimezones = computed(() => {
+  const timezones = countryTimezoneMap[formData.country] || []
+  return timezones.map(tz => ({ label: tz, value: tz }))
+})
+
+// Auto-select timezone when country changes
+watch(() => formData.country, (newCountry) => {
+  if (newCountry) {
+    const tzs = countryTimezoneMap[newCountry] || []
+    // Si un seul fuseau, le sélectionner automatiquement
+    if (tzs.length === 1) {
+      formData.timezone = tzs[0]
+    } else {
+      // Si plusieurs, réinitialiser pour forcer le choix
+      formData.timezone = ''
+    }
+  }
+})
   { label: 'Prise de rendez-vous', value: 'Prise de rendez-vous' },
   { label: 'Qualification de prospects', value: 'Qualification de prospects' },
   { label: 'Vente directe', value: 'Vente directe' },
@@ -826,7 +850,8 @@ const handleSubmit = async () => {
     { key: 'infos', label: 'Description entreprise / service' },
     { key: 'agent_name', label: "Nom de l'agent" },
     { key: 'objectifs', label: 'Objectifs de Prospection' },
-    { key: 'country', label: 'Pays' }
+    { key: 'country', label: 'Pays' },
+    { key: 'timezone', label: 'Fuseau horaire d\'appel' }
   ]
 
   const missing = requiredChecks
