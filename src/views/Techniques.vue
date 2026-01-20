@@ -205,21 +205,21 @@
                   <i class="pi pi-times-circle text-2xl text-red-400 mt-1"></i>
                   <div>
                     <h3 class="font-bold text-lg mb-2">Taux de réponse faible</h3>
-                    <p class="text-gray-300">Les emails et appels manuels génèrent des taux de réponse très bas, gaspillant du temps et des ressources précieuses.</p>
+                    <p class="text-gray-700">Les emails et appels manuels génèrent des taux de réponse très bas, gaspillant du temps et des ressources précieuses.</p>
                   </div>
                 </div>
                 <div class="flex items-start gap-3">
                   <i class="pi pi-clock text-2xl text-yellow-400 mt-1"></i>
                   <div>
                     <h3 class="font-bold text-lg mb-2">Manque de temps</h3>
-                    <p class="text-gray-300">Les équipes commerciales passent trop de temps sur des tâches répétitives au lieu de se concentrer sur la conversion.</p>
+                    <p class="text-gray-700">Les équipes commerciales passent trop de temps sur des tâches répétitives au lieu de se concentrer sur la conversion.</p>
                   </div>
                 </div>
                 <div class="flex items-start gap-3">
                   <i class="pi pi-exclamation-triangle text-2xl text-orange-400 mt-1"></i>
                   <div>
                     <h3 class="font-bold text-lg mb-2">Inconsistance des approches</h3>
-                    <p class="text-gray-300">Chaque commercial utilise sa propre méthode, créant des résultats incohérents et difficiles à mesurer.</p>
+                    <p class="text-gray-700">Chaque commercial utilise sa propre méthode, créant des résultats incohérents et difficiles à mesurer.</p>
                   </div>
                 </div>
               </div>
@@ -228,21 +228,21 @@
                   <i class="pi pi-dollar text-2xl text-red-400 mt-1"></i>
                   <div>
                     <h3 class="font-bold text-lg mb-2">Coûts élevés</h3>
-                    <p class="text-gray-300">L'embauche et la formation d'équipes commerciales représentent un investissement considérable avec un ROI incertain.</p>
+                    <p class="text-gray-700">L'embauche et la formation d'équipes commerciales représentent un investissement considérable avec un ROI incertain.</p>
                   </div>
                 </div>
                 <div class="flex items-start gap-3">
                   <i class="pi pi-chart-line text-2xl text-yellow-400 mt-1"></i>
                   <div>
                     <h3 class="font-bold text-lg mb-2">Difficulté de scalabilité</h3>
-                    <p class="text-gray-300">Augmenter le volume de prospection nécessite d'embaucher plus de personnel, ce qui n'est pas toujours viable.</p>
+                    <p class="text-gray-700">Augmenter le volume de prospection nécessite d'embaucher plus de personnel, ce qui n'est pas toujours viable.</p>
                   </div>
                 </div>
                 <div class="flex items-start gap-3">
                   <i class="pi pi-ban text-2xl text-orange-400 mt-1"></i>
                   <div>
                     <h3 class="font-bold text-lg mb-2">Fatigue et rejet</h3>
-                    <p class="text-gray-300">Les refus répétés et la fatigue mentale affectent la motivation et les performances des équipes commerciales.</p>
+                    <p class="text-gray-700">Les refus répétés et la fatigue mentale affectent la motivation et les performances des équipes commerciales.</p>
                   </div>
                 </div>
               </div>

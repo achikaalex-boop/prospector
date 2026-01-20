@@ -17,7 +17,7 @@
             <div v-else class="text-sm font-medium truncate">Solde: {{ (balanceCents/100).toFixed(2) }} USD</div>
             <button @click.prevent="router.push('/topup')" class="ml-2 bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs">+</button>
           </div>
-          <div class="flex items-center gap-2">
+          <div class="hidden md:flex items-center gap-2">
             <Button
               label="Déconnexion"
               icon="pi pi-sign-out"
@@ -45,6 +45,7 @@ const confirmModalRef = ref(null)
 const isAuthenticated = ref(false)
 const balanceCents = ref(0)
 const balanceLoading = ref(true)
+const isMobile = ref(window.innerWidth < 768)
 
 // Provide showConfirm function to all child components
 provide('showConfirm', (options) => {
@@ -53,40 +54,55 @@ provide('showConfirm', (options) => {
   }
   return Promise.reject('Confirm modal not available')
 })
-const balanceLoading = ref(true)
 
-const menuItems = computed(() => [
-  {
-    label: 'Account',
-    icon: 'pi pi-user',
-    command: () => router.push('/account')
-  },
-  {
-    label: 'Dashboard',
-    icon: 'pi pi-home',
-    command: () => router.push('/')
-  },
-  {
-    label: 'Nouvelle Campagne',
-    icon: 'pi pi-plus-circle',
-    command: () => router.push('/campaign')
-  },
-  {
-    label: 'Pricing',
-    icon: 'pi pi-tags',
-    command: () => router.push('/pricing')
-  },
-  {
-    label: 'Top-up',
-    icon: 'pi pi-wallet',
-    command: () => router.push('/topup')
-  },
-  {
-    label: 'Techniques',
-    icon: 'pi pi-book',
-    command: () => router.push('/techniques')
+const menuItems = computed(() => {
+  const items = [
+    {
+      label: 'Account',
+      icon: 'pi pi-user',
+      command: () => router.push('/account')
+    },
+    {
+      label: 'Dashboard',
+      icon: 'pi pi-home',
+      command: () => router.push('/')
+    }
+  ]
+  
+  // Ajouter "Nouvelle Campagne" uniquement sur mobile
+  if (isMobile.value) {
+    items.push({
+      label: 'Nouvelle Campagne',
+      icon: 'pi pi-plus-circle',
+      command: () => router.push('/campaign')
+    })
   }
-])
+  
+  items.push(
+    {
+      label: 'Pricing',
+      icon: 'pi pi-tags',
+      command: () => router.push('/pricing')
+    },
+    {
+      label: 'Top-up',
+      icon: 'pi pi-wallet',
+      command: () => router.push('/topup')
+    },
+    {
+      label: 'Techniques',
+      icon: 'pi pi-book',
+      command: () => router.push('/techniques')
+    },
+    {
+      label: 'Déconnexion',
+      icon: 'pi pi-sign-out',
+      command: () => handleLogout()
+    }
+  )
+  
+  return items
+})
 
 const checkAuth = async () => {
   try {
@@ -126,6 +142,13 @@ const handleLogout = async () => {
 onMounted(() => {
   checkAuth()
   fetchBalance()
+  
+  // Listener pour les changements de taille d'écran
+  const handleResize = () => {
+    isMobile.value = window.innerWidth < 768
+  }
+  window.addEventListener('resize', handleResize)
+  
   try {
     supabase.auth.onAuthStateChange((event, session) => {
       isAuthenticated.value = !!session
@@ -142,7 +165,10 @@ onMounted(() => {
   // Listen for global balance refresh events
   const onBalanceUpdated = () => fetchBalance()
   window.addEventListener('balance:updated', onBalanceUpdated)
-  onUnmounted(() => window.removeEventListener('balance:updated', onBalanceUpdated))
+  onUnmounted(() => {
+    window.removeEventListener('balance:updated', onBalanceUpdated)
+    window.removeEventListener('resize', handleResize)
+  })
 })
 </script>
 
