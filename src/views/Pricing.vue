@@ -191,10 +191,7 @@ export default {
     async performSubscribe(plan, user_id) {
       try {
         const amountCents = Math.round(plan.monthly_price * 100)
-        const resp = await axios.post('/api/subscribe', { plan_slug: plan.slug, amount_cents: amountCents, user_id })
-        const order = resp.data
-        const link = (order?.links || []).find(l => l.rel === 'approve')
-        this.approvalLink = link ? link.href : null
+        
         // If plan is free (0 cents) switch immediately via server-side change-plan
         if (amountCents === 0) {
           try {
@@ -219,6 +216,12 @@ export default {
             return
           }
         }
+        
+        // For paid plans, create a PayPal order
+        const resp = await axios.post('/api/subscribe', { plan_slug: plan.slug, amount_cents: amountCents, user_id })
+        const order = resp.data
+        const link = (order?.links || []).find(l => l.rel === 'approve')
+        this.approvalLink = link ? link.href : null
 
         if (!this.approvalLink) {
           this.$toast.add({ severity: 'error', summary: 'Erreur', detail: "Impossible d'obtenir le lien PayPal d'approbation", life: 6000 })
