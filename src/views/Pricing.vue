@@ -4,48 +4,46 @@
     <div class="mb-4 text-sm text-gray-600">Choisissez un abonnement adapté à votre usage. Les appels sont facturés à la minute en sus si applicable.</div>
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <div v-for="p in uiPlans" :key="p.slug" :class="['p-6 rounded-lg', p.slug === 'pro' ? 'bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-lg' : 'bg-white border']">
+      <div v-for="p in uiPlans" :key="p.slug" :class="['p-6 rounded-lg border-2 transition-all', p.slug === 'pro' ? 'bg-gradient-to-br from-blue-700 to-blue-900 border-blue-600 shadow-xl' : 'bg-white border-gray-200 hover:border-blue-300']">
+        <!-- Header -->
         <div class="flex items-start justify-between gap-3">
+          <div class="flex-1">
+            <div class="flex items-center gap-2 mb-2">
+              <span v-if="p.slug === 'free'" class="text-lg">🟢</span>
+              <span v-else-if="p.slug === 'starter'" class="text-lg">🔵</span>
+              <span v-else-if="p.slug === 'pro'" class="text-lg">🔴</span>
+              <h3 :class="['text-xl font-bold', p.slug === 'pro' ? 'text-white' : 'text-gray-900']">{{ p.name }}</h3>
+            </div>
+            <div :class="['mt-2 text-2xl font-bold', p.slug === 'pro' ? 'text-white' : 'text-gray-900']">{{ displayMoney(monthlyPriceCents(p)) }}<span class="text-sm font-normal">/mois</span></div>
+          </div>
+          <div v-if="activePlan && (activePlan.plan_slug === p.slug || activePlan.slug === p.slug)" class="text-xs font-bold uppercase px-2 py-1 rounded" :class="p.slug === 'pro' ? 'bg-green-400 text-gray-900' : 'bg-green-500 text-white'">Actif</div>
+        </div>
+
+        <!-- Divider -->
+        <div :class="['my-4 h-px', p.slug === 'pro' ? 'bg-blue-400/30' : 'bg-gray-200']"></div>
+
+        <!-- Features -->
+        <div :class="['text-sm space-y-3', p.slug === 'pro' ? 'text-blue-50' : 'text-gray-700']">
           <div>
-            <div class="flex items-center gap-2">
-              <span v-if="p.slug === 'free'" class="text-green-500">🟢</span>
-              <span v-else-if="p.slug === 'starter' || p.slug === 'standard'" class="text-blue-500">🔵</span>
-              <span v-else-if="p.slug === 'pro'" class="text-red-500">🔴</span>
-              <h3 class="text-lg font-semibold">{{ p.name }} <span class="text-xs ml-2 text-gray-500">{{ p.tagline || '' }}</span></h3>
-            </div>
-            <div class="mt-3 text-sm text-gray-200/80">
-              <div :class="['text-xl font-bold', p.slug === 'pro' ? 'text-white' : 'text-gray-900']">{{ displayMoney(monthlyPriceCents(p)) }} USD</div>
-              <div class="text-sm text-gray-400">/ mois</div>
-            </div>
+            <p class="font-semibold" :class="p.slug === 'pro' ? 'text-white' : 'text-gray-900'">Limites & Tarification</p>
+            <ul class="mt-2 space-y-1.5 text-sm">
+              <li><span class="font-semibold">Campagnes/mois :</span> <span class="font-bold">{{ p.monthly_campaign_limit || '—' }}</span></li>
+              <li><span class="font-semibold">Contacts/campagne :</span> <span class="font-bold">{{ p.max_contacts_per_campaign || '—' }}</span></li>
+              <li><span class="font-semibold">Appels simultanés :</span> <span class="font-bold">{{ p.max_concurrency || p.concurrency || '—' }}</span></li>
+              <li><span class="font-semibold">Coût/minute :</span> <span class="font-bold">{{ displayMoney(p.per_min_cents || 0) }} USD</span></li>
+            </ul>
           </div>
-          <div class="text-right">
-            <div v-if="activePlan && (activePlan.plan_slug === p.slug || activePlan.slug === p.slug)" class="text-xs uppercase px-2 py-1 bg-green-600 text-white rounded">Actif</div>
+
+          <div v-if="p.description" :class="['mt-3 p-2 rounded text-xs', p.slug === 'pro' ? 'bg-blue-600/40 text-blue-100' : 'bg-gray-50 text-gray-600']">
+            <p>{{ p.description }}</p>
           </div>
         </div>
 
-        <div class="mt-4 text-sm">
-          <p v-if="p.objective" class="mb-2"><strong>Objectif :</strong> {{ p.objective }}</p>
-
-          <p class="font-semibold">Limites & Tarification</p>
-          <ul class="mt-2 space-y-1 text-sm">
-            <li><strong>Campagnes/mois :</strong> {{ p.monthly_campaign_limit || '—' }}</li>
-            <li><strong>Contacts par campagne :</strong> {{ p.max_contacts_per_campaign || '—' }}</li>
-            <li><strong>Appels simultanés :</strong> {{ p.max_concurrency || p.concurrency || '—' }}</li>
-            <li><strong>Coût/minute :</strong> {{ displayMoney(p.per_min_cents || 0) }} USD</li>
-          </ul>
-
-          <div v-if="p.description" class="mt-3 text-xs text-gray-600">
-            <p class="italic">{{ p.description }}</p>
-          </div>
-
-        </div>
-
-        <div class="mt-4">
-          <div class="flex items-center gap-2">
-            <button @click="subscribe(p)" :disabled="isPlanActive(p) || isLoading" :class="(p.slug === 'pro' ? 'bg-white text-blue-700 px-4 py-2 rounded' : (p.slug === 'free' ? 'bg-gray-100 text-gray-800 px-4 py-2 rounded' : 'bg-blue-600 text-white px-4 py-2 rounded')) + (isPlanActive(p) || isLoading ? ' opacity-50 cursor-not-allowed' : '')">
-              {{ isPlanActive(p) ? 'Abonné' : (p.slug === 'free' ? "Passer au gratuit" : "S'abonner") }}
-            </button>
-          </div>
+        <!-- Button -->
+        <div class="mt-6">
+          <button @click="subscribe(p)" :disabled="isPlanActive(p) || isLoading" :class="['w-full py-2 px-4 rounded font-semibold transition-all', p.slug === 'pro' ? 'bg-white text-blue-700 hover:bg-gray-100' : (p.slug === 'free' ? 'bg-gray-200 text-gray-900 hover:bg-gray-300' : 'bg-blue-600 text-white hover:bg-blue-700'), isPlanActive(p) || isLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer']">
+            {{ isPlanActive(p) ? '✓ Abonné' : (p.slug === 'free' ? 'Passer au gratuit' : "S'abonner") }}
+          </button>
         </div>
       </div>
     </div>
@@ -61,11 +59,7 @@ export default {
   name: 'Pricing',
   data() {
     return {
-      uiPlans: [
-        { slug: 'free', name: 'Starter', monthly_price: 0.00, per_min_cents: 30, concurrency: 5, included_minutes: 20 },
-        { slug: 'standard', name: 'Standard', monthly_price: 19.00, per_min_cents: 30, concurrency: 10, included_minutes: 200 },
-        { slug: 'pro', name: 'Pro', monthly_price: 49.00, per_min_cents: 30, concurrency: 20, included_minutes: 1000 }
-      ],
+      uiPlans: [],
       activePlan: null,
       balanceCents: 0,
       balanceLoading: true,
