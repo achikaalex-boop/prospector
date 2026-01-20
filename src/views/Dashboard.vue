@@ -260,15 +260,15 @@
       <!-- Raw Result Dialog -->
       <Dialog v-model:visible="showResultDialog" header="Payload brut" :style="{ width: '90vw', maxWidth: '900px' }" :modal="true">
             <div v-if="selectedResult">
-              <div class="flex items-start justify-between gap-4">
-                <div>
+              <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                <div class="flex-1">
                   <h4 class="font-semibold mb-2">Résumé</h4>
                   <p><strong>Contact:</strong> {{ selectedResult.contact_name || selectedResult.contact_phone }}</p>
                   <p><strong>Statut:</strong> {{ selectedResult.status }}</p>
                   <p><strong>Durée:</strong> {{ selectedResult.call_duration }}s</p>
                   <p v-if="selectedResult.raw_payload?.call_analysis?.call_summary" class="mt-3 p-2 bg-blue-50 rounded text-sm"><strong>Résumé de l'appel:</strong> {{ selectedResult.raw_payload.call_analysis.call_summary }}</p>
                 </div>
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-2 flex-wrap lg:flex-nowrap">
                   <Button label="Copier JSON" icon="pi pi-copy" class="p-button-sm" @click="copyRawJson" />
                   <Button :label="showRawJson ? 'Masquer JSON' : 'Afficher JSON'" class="p-button-sm" @click="showRawJson = !showRawJson" />
                 </div>
