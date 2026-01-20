@@ -93,13 +93,17 @@ const menuItems = computed(() => {
       label: 'Techniques',
       icon: 'pi pi-book',
       command: () => router.push('/techniques')
-    },
-    {
+    }
+  )
+  
+  // Ajouter "Déconnexion" uniquement sur mobile
+  if (isMobile.value) {
+    items.push({
       label: 'Déconnexion',
       icon: 'pi pi-sign-out',
       command: () => handleLogout()
-    }
-  )
+    })
+  }
   
   return items
 })
