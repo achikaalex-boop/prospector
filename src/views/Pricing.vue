@@ -54,9 +54,14 @@
 <script>
 import axios from 'axios'
 import { supabase } from '../lib/supabase'
+import { inject } from 'vue'
 
 export default {
   name: 'Pricing',
+  setup() {
+    const showConfirm = inject('showConfirm')
+    return { showConfirm }
+  },
   data() {
     return {
       uiPlans: [],
@@ -163,18 +168,20 @@ export default {
           return
         }
 
-        // If this is a downgrade while current plan is active, ask for confirmation via PrimeVue confirm
+        // If this is a downgrade while current plan is active, ask for confirmation
         if (this.activePlan && this.isDowngrade(plan)) {
-          this.$confirm({
+          const confirmed = await this.showConfirm({
+            title: 'Confirmer la modification de plan',
             message: 'Vous changez vers un plan moins avantageux. Cette action peut être irréversible. Voulez-vous continuer ?',
-            header: 'Confirmer la modification',
-            icon: 'pi pi-exclamation-triangle',
-            accept: async () => { await this.performSubscribe(plan, user_id) },
-            reject: () => { /* no-op */ }
+            confirmText: 'Oui, continuer',
+            cancelText: 'Annuler',
+            icon: '⚠️',
+            variant: 'danger'
           })
-        } else {
-          await this.performSubscribe(plan, user_id)
+          if (!confirmed) return
         }
+        
+        await this.performSubscribe(plan, user_id)
       } catch (e) {
         console.error('subscribe error', e)
         this.$toast.add({ severity: 'error', summary: 'Erreur', detail: 'Erreur lors de la création de la souscription: ' + (e?.response?.data?.error || e.message || e), life: 8000 })

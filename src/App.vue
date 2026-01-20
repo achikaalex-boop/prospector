@@ -1,6 +1,7 @@
 <template>
   <div id="app">
     <ConfirmDialog />
+    <ConfirmModal ref="confirmModalRef" />
     <Menubar v-if="isAuthenticated" :model="menuItems" class="sticky top-0 z-50 shadow-md">
       <template #start>
           <router-link to="/" class="flex items-center gap-2 no-underline">
@@ -33,15 +34,25 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, provide } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from './lib/supabase'
 import Menubar from 'primevue/menubar'
 import Button from 'primevue/button'
 
 const router = useRouter()
+const confirmModalRef = ref(null)
 const isAuthenticated = ref(false)
 const balanceCents = ref(0)
+const balanceLoading = ref(true)
+
+// Provide showConfirm function to all child components
+provide('showConfirm', (options) => {
+  if (confirmModalRef.value) {
+    return confirmModalRef.value.show(options)
+  }
+  return Promise.reject('Confirm modal not available')
+})
 const balanceLoading = ref(true)
 
 const menuItems = computed(() => [

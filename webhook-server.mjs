@@ -208,8 +208,20 @@ const PAYPAL_WEBHOOK_ID = process.env.PAYPAL_WEBHOOK_ID || null;
 
 async function getPayPalAccessToken() {
   if (!PAYPAL_CLIENT_ID || !PAYPAL_SECRET) throw new Error('PayPal credentials not configured');
+  
+  // Debug: vérifie que les identifiants n'ont pas d'espaces
+  const clientId = (PAYPAL_CLIENT_ID || '').trim();
+  const secret = (PAYPAL_SECRET || '').trim();
+  
+  if (!clientId || !secret) {
+    throw new Error('PayPal credentials are empty or whitespace only');
+  }
+  
+  console.log('[PayPal Debug] Client ID length:', clientId.length, 'Secret length:', secret.length);
+  console.log('[PayPal Debug] API Host:', PAYPAL_API_HOST);
+  
   const tokenUrl = `${PAYPAL_API_HOST}/v1/oauth2/token`;
-  const auth = Buffer.from(`${PAYPAL_CLIENT_ID}:${PAYPAL_SECRET}`).toString('base64');
+  const auth = Buffer.from(`${clientId}:${secret}`).toString('base64');
   const params = new URLSearchParams();
   params.append('grant_type', 'client_credentials');
 

@@ -7,6 +7,7 @@ import Toast from 'primevue/toast'
 import ConfirmDialog from 'primevue/confirmdialog'
 import ConfirmationService from 'primevue/confirmationservice'
 import Aura from '@primevue/themes/aura'
+import ConfirmModal from './components/ConfirmModal.vue'
 import 'primeicons/primeicons.css'
 import './style.css'
 
@@ -43,5 +44,16 @@ app.use(ToastService)
 app.use(ConfirmationService)
 app.component('Toast', Toast)
 app.component('ConfirmDialog', ConfirmDialog)
+app.component('ConfirmModal', ConfirmModal)
+
+// Create confirm modal instance for global use
+let confirmModalInstance = null
+app.config.globalProperties.$showConfirm = function(options) {
+  if (!confirmModalInstance) {
+    confirmModalInstance = app._context.components.ConfirmModal
+  }
+  // This will be set via provide/inject in App.vue
+}
+
 app.mount('#app')
 
