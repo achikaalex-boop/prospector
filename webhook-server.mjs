@@ -753,105 +753,30 @@ app.post('/api/create-campaign', async (req, res) => {
       plan.max_contacts_per_campaign = Number(plan.max_contacts_per_campaign || 10)
       plan.max_concurrency = Number(plan.max_concurrency || 1)
       plan.monthly_campaign_limit = Number(plan.monthly_campaign_limit || 5)
-      plan.included_minutes = Number(plan.included_minutes || 0)
     } else {
-      // For paid plans, ensure included_minutes is set (default to 0 if not found in DB)
-      plan.included_minutes = Number(plan.included_minutes || plan.monthly_included_minutes || 0)
+      // For paid plans
       plan.max_contacts_per_campaign = Number(plan.max_contacts_per_campaign || 1000)
       plan.max_concurrency = Number(plan.max_concurrency || 10)
       plan.monthly_campaign_limit = Number(plan.monthly_campaign_limit || 100)
     }
 
-    console.log(`[create-campaign] Plan loaded for user ${userId}:`, { slug: plan.slug, included_minutes: plan.included_minutes, max_contacts_per_campaign: plan.max_contacts_per_campaign })
-    // Provider cost set to $0.15/min -> 15 cents per minute
-    // Use conservative margin to avoid selling at or below cost
-    const providerCentsPerMin = 15
-    const margin = 2.0
-    const perMinCents = Math.ceil(providerCentsPerMin * margin)
+    console.log(`[create-campaign] Plan loaded for user ${userId}:`, { slug: plan.slug, max_contacts_per_campaign: plan.max_contacts_per_campaign })
 
-    const minutes = Math.ceil((contactsCount * avgCallSec) / 60)
-    const includedMinutes = plan && plan.included_minutes ? Number(plan.included_minutes) : 0
     const maxContacts = plan && plan.max_contacts_per_campaign ? Number(plan.max_contacts_per_campaign) : 1000
 
     // Enforce monthly campaign limit (for free tier mainly)
-    try {
-      const startOfMonth = new Date()
-      startOfMonth.setUTCDate(1); startOfMonth.setUTCHours(0,0,0,0)
-      const { data: monthCampaigns, error: monthErr } = await supabase.from('campaigns').select('id').eq('user_id', userId).gte('created_at', startOfMonth.toISOString())
-      const createdThisMonth = Array.isArray(monthCampaigns) ? monthCampaigns.length : 0
-      const monthlyLimit = plan && Number(plan.monthly_campaign_limit) ? Number(plan.monthly_campaign_limit) : 0
-      if (monthlyLimit > 0 && createdThisMonth >= monthlyLimit) {
-        return res.status(403).json({ error: `Vous avez atteint la limite de ${monthlyLimit} campagnes pour ce mois. Passez à un plan payant pour supprimer cette limite.` })
-      }
-    } catch (e) {
-      // if counting fails, allow creation (best-effort)
-      console.warn('Could not check monthly campaign count:', e?.message || e)
+    const startOfMonth = new Date()
+    startOfMonth.setUTCDate(1); startOfMonth.setUTCHours(0,0,0,0)
+    const { data: monthCampaigns, error: monthErr } = await supabase.from('campaigns').select('id').eq('user_id', userId).gte('created_at', startOfMonth.toISOString())
+    const createdThisMonth = Array.isArray(monthCampaigns) ? monthCampaigns.length : 0
+    const monthlyLimit = plan && Number(plan.monthly_campaign_limit) ? Number(plan.monthly_campaign_limit) : 0
+    console.log(`[create-campaign] Monthly campaign check for user ${userId}:`, { createdThisMonth, monthlyLimit, planSlug: plan.slug })
+    if (monthlyLimit > 0 && createdThisMonth >= monthlyLimit) {
+      return res.status(403).json({ error: `Vous avez atteint la limite de ${monthlyLimit} campagnes pour ce mois. Passez à un abonnement supérieur ou renouvelez votre abonnement pour continuer.` })
     }
 
     if (maxContacts > 0 && contactsCount > maxContacts) {
-      return res.status(400).json({ error: `Le plan courant limite à ${maxContacts} contacts par campagne.`, max_contacts: maxContacts })
-    }
-
-    // compute used minutes this month for user
-    let usedMinutes = 0
-    try {
-      const startOfMonth = new Date()
-      startOfMonth.setUTCDate(1); startOfMonth.setUTCHours(0,0,0,0)
-      const { data: usage } = await supabase.from('usage_records').select('billed_minutes').eq('user_id', userId).gte('created_at', startOfMonth.toISOString())
-      if (Array.isArray(usage)) usedMinutes = usage.reduce((s, r) => s + (Number(r.billed_minutes) || 0), 0)
-    } catch (e) {
-      console.warn('Could not fetch usage_records:', e?.message || e)
-    }
-
-    const remainingIncluded = Math.max(0, includedMinutes - usedMinutes)
-
-    let overageMinutes = 0
-    if (minutes > remainingIncluded) overageMinutes = minutes - remainingIncluded
-    const overageCostCents = overageMinutes * perMinCents
-
-    console.log(`[create-campaign] Minutes calculation for user ${userId}:`, { 
-      contactsCount, 
-      avgCallSec, 
-      minutes, 
-      includedMinutes, 
-      usedMinutes, 
-      remainingIncluded, 
-      overageMinutes, 
-      overageCostCents 
-    })
-
-    // For paid plans (Starter, Pro), included minutes should cover the campaign
-    // Only check credits if there's an overage
-    const isPaidPlan = plan && plan.slug && !planIsFree(plan.slug)
-    
-    console.log(`[create-campaign] Plan check for user ${userId}:`, { isPaidPlan, planSlug: plan.slug, overageCostCents })
-    
-    // If overage cost is 0 or negative, no payment needed
-    if (overageCostCents <= 0) {
-      console.log(`[create-campaign] No overage cost - proceeding with campaign creation`)
-      // Campaign is fully covered by included minutes or has no cost - proceed
-    } else {
-      // There's an overage cost - check credits
-      console.log(`[create-campaign] Overage cost detected (${overageCostCents} cents) - checking credits`)
-      let creditCents = 0
-      try {
-        const { data: credits } = await supabase.from('user_credits').select('amount').eq('user_id', userId)
-        if (Array.isArray(credits)) {
-          const sum = credits.reduce((s, r) => s + (Number(r.amount) || 0), 0)
-          creditCents = Math.round(sum * 100)
-        }
-      } catch (e) {
-        console.warn('Could not fetch user credits:', e?.message || e)
-      }
-
-      console.log(`[create-campaign] Credit check for user ${userId}:`, { creditCents, overageCostCents })
-
-      // If overage cost > available credits, reject
-      if (creditCents < overageCostCents) {
-        const needCents = overageCostCents - creditCents
-        console.error(`[create-campaign] Insufficient credits for user ${userId}: have ${creditCents}, need ${overageCostCents}`)
-        return res.status(402).json({ error: 'Solde insuffisant pour couvrir le coût estimé de la campagne.', required_topup_cents: needCents, required_topup_usd: (needCents/100).toFixed(2) })
-      }
+      return res.status(400).json({ error: `Le plan courant limite à ${maxContacts} contacts par campagne. Passez à un abonnement supérieur ou renouvelez votre abonnement pour continuer.`, max_contacts: maxContacts })
     }
 
     // Otherwise, allowed. Insert campaign and forward to create-batch (enqueue)
