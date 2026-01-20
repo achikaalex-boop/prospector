@@ -326,7 +326,7 @@ import Column from 'primevue/column'
 const campaigns = ref([])
 const selectedCampaign = ref(null)
 const showDialog = ref(false)
-const viewMode = ref('grid')
+const viewMode = ref(window.innerWidth < 768 ? 'list' : 'grid')
 const loading = ref(true)
 const error = ref('')
 const userPlan = ref(null)
@@ -511,6 +511,16 @@ onMounted(() => {
   loadCampaigns()
   loadUserPlan()
   window.addEventListener('plan:updated', loadUserPlan)
+  
+  // Listener pour les changements de taille d'écran
+  const handleResize = () => {
+    viewMode.value = window.innerWidth < 768 ? 'list' : 'grid'
+  }
+  window.addEventListener('resize', handleResize)
+  
+  return () => {
+    window.removeEventListener('resize', handleResize)
+  }
 })
 
 onBeforeUnmount(() => {
