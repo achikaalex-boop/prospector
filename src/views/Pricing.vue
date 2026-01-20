@@ -94,7 +94,7 @@ export default {
     },    async fetchPlans() {
       try {
         // DB stores monthly_price_cents and per_min_cents as cents
-            const { data, error } = await supabase.from('plans').select('slug,name,monthly_price_cents,per_min_cents,max_concurrency,included_minutes,monthly_campaign_limit,description,tagline,objective,minutes_expiry_days,card_required,network_priority,soft_limit_percent,has_dedicated_number,has_extra_concurrency')
+            const { data, error } = await supabase.from('plans').select('slug,name,monthly_price_cents,per_min_cents,max_concurrency,included_minutes,monthly_campaign_limit,max_contacts_per_campaign,description,tagline,objective,minutes_expiry_days,card_required,network_priority,soft_limit_percent,has_dedicated_number,has_extra_concurrency')
             if (!error && Array.isArray(data) && data.length) {
               this.uiPlans = data.map(p => ({
                 slug: p.slug,
