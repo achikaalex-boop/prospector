@@ -26,34 +26,16 @@
         <div class="mt-4 text-sm">
           <p v-if="p.objective" class="mb-2"><strong>Objectif :</strong> {{ p.objective }}</p>
 
-          <p class="font-semibold">Inclus</p>
-          <ul class="mt-2 space-y-1">
-            <li><strong>Prix :</strong> {{ displayMoney(monthlyPriceCents(p)) }} USD</li>
-            <li><strong>Minutes incluses :</strong> {{ p.included_minutes || '—' }} / mois</li>
-            <li><strong>Concurrency :</strong> {{ p.max_concurrency || p.concurrency || '—' }}</li>
-            <li v-if="p.minutes_expiry_days"><strong>Expiration des minutes :</strong> {{ p.minutes_expiry_days }} jours</li>
-
-            <li><strong>Priorité réseau :</strong> {{ p.network_priority || 'standard' }}</li>
-            <li><strong>Soft limit :</strong> {{ p.soft_limit_percent || '—' }}% <small class="text-gray-500">Seuil d'alerte : déclenche avertissements et mesures d'atténuation avant facturation additionnelle.</small></li>
-            <li>Throttling après dépassement <small class="text-gray-500">Après dépassement des minutes incluses, le débit est réduit temporairement pour limiter les coûts.</small></li>
+          <p class="font-semibold">Limites & Tarification</p>
+          <ul class="mt-2 space-y-1 text-sm">
+            <li><strong>Campagnes/mois :</strong> {{ p.monthly_campaign_limit || '—' }}</li>
+            <li><strong>Contacts par campagne :</strong> {{ p.max_contacts_per_campaign || '—' }}</li>
+            <li><strong>Appels simultanés :</strong> {{ p.max_concurrency || p.concurrency || '—' }}</li>
+            <li><strong>Coût/minute :</strong> {{ displayMoney(p.per_min_cents || 0) }} USD</li>
           </ul>
 
-          <p class="mt-3 font-semibold">Au-delà</p>
-          <ul class="mt-2 space-y-1">
-            <li><strong>Facturation :</strong> {{ displayMoney(p.per_min_cents || 0) }} USD / minute</li>
-          </ul>
-
-          <p class="mt-3 font-semibold">Options</p>
-          <ul class="mt-2 space-y-1 text-sm text-gray-700">
-            <li v-if="p.has_dedicated_number">Numéro dédié sur demande (add-on)</li>
-            <li v-if="p.has_extra_concurrency">Concurrency supplémentaire (add-on)</li>
-            <li v-if="!p.has_dedicated_number">Pas de numéro dédié</li>
-          </ul>
-
-          <div v-if="p.description" class="mt-3 text-xs text-gray-500">
-            <ul class="list-disc ml-4 space-y-1">
-              <li v-for="(line, idx) in formatDescription(p.description)" :key="idx">{{ line }}</li>
-            </ul>
+          <div v-if="p.description" class="mt-3 text-xs text-gray-600">
+            <p class="italic">{{ p.description }}</p>
           </div>
 
         </div>
@@ -118,7 +100,7 @@ export default {
     },    async fetchPlans() {
       try {
         // DB stores monthly_price_cents and per_min_cents as cents
-            const { data, error } = await supabase.from('plans').select('slug,name,monthly_price_cents,per_min_cents,max_concurrency,included_minutes,description,tagline,objective,minutes_expiry_days,card_required,network_priority,soft_limit_percent,has_dedicated_number,has_extra_concurrency')
+            const { data, error } = await supabase.from('plans').select('slug,name,monthly_price_cents,per_min_cents,max_concurrency,included_minutes,monthly_campaign_limit,description,tagline,objective,minutes_expiry_days,card_required,network_priority,soft_limit_percent,has_dedicated_number,has_extra_concurrency')
             if (!error && Array.isArray(data) && data.length) {
               this.uiPlans = data.map(p => ({
                 slug: p.slug,
@@ -129,6 +111,7 @@ export default {
                 concurrency: Number(p.max_concurrency) || Number(p.concurrency) || 0,
                 max_concurrency: Number(p.max_concurrency) || 0,
                 included_minutes: Number(p.included_minutes) || 0,
+                monthly_campaign_limit: Number(p.monthly_campaign_limit) || 0,
                 description: p.description || '',
                 tagline: p.tagline || '',
                 objective: p.objective || '',

@@ -25,16 +25,19 @@
       </Card>
 
       <!-- Monthly campaign usage / limits -->
-      <div class="mb-4">
-        <div v-if="monthlyLimit > 0">
-          <div v-if="remainingSlots === 0" class="text-sm text-red-600">
-            <strong>Vous avez atteint la limite de {{ monthlyLimit }} campagnes pour ce mois.</strong>
-            Passez à un plan payant pour supprimer cette limite.
-            <div class="mt-2">
-              <button @click="$router.push('/pricing')" class="bg-blue-600 text-white px-3 py-1 rounded text-sm">Voir les plans</button>
-            </div>
+      <div class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded">
+        <div v-if="monthlyLimit > 0" class="text-sm">
+          <div v-if="remainingSlots === 0" class="text-red-700 font-semibold">
+            <i class="pi pi-exclamation-circle"></i>
+            Limite atteinte : {{ monthlyLimit }} campagnes/mois
           </div>
-          <div v-else class="text-sm text-gray-700">Campagnes ce mois: {{ monthlyCount }} / {{ monthlyLimit }} — il vous reste {{ remainingSlots }}.</div>
+          <div v-else class="text-blue-800">
+            <strong>Campagnes :</strong> {{ monthlyCount }} / {{ monthlyLimit }}
+            <span class="text-green-700">{{ remainingSlots }} restante{{ remainingSlots > 1 ? 's' : '' }}</span>
+          </div>
+          <div v-if="maxContactsPerCampaign" class="mt-1 text-gray-700">
+            <strong>Contacts max/campagne :</strong> {{ maxContactsPerCampaign }}
+          </div>
         </div>
       </div>
 
@@ -42,7 +45,40 @@
 
       <!-- Debug logs are sent to the server for Render.com; not shown to clients -->
 
-      <form @submit.prevent="handleSubmit">
+      <!-- Limit reached message - block form display -->
+      <Card v-if="monthlyLimit > 0 && remainingSlots === 0" class="mb-6 shadow-md border border-red-200 bg-red-50">
+        <template #content>
+          <div class="text-center">
+            <div class="mb-4">
+              <i class="pi pi-lock text-red-600" style="font-size: 2rem;"></i>
+            </div>
+            <h2 class="text-2xl font-bold text-red-600 mb-2">Limite mensuelle atteinte</h2>
+            <p class="text-gray-700 mb-2">
+              Vous avez atteint votre limite de <strong>{{ monthlyLimit }} campagnes</strong> ce mois.
+            </p>
+            <p class="text-sm text-gray-600 mb-6">
+              Réinitialisation le <strong>{{ firstDayOfNextMonth }}</strong>. Passez à un plan supérieur pour plus de campagnes.
+            </p>
+            <div class="flex gap-3 justify-center">
+              <Button 
+                label="Voir les plans" 
+                icon="pi pi-arrow-right"
+                class="p-button-primary"
+                @click="$router.push('/pricing')"
+              />
+              <Button 
+                label="Accueil" 
+                icon="pi pi-home"
+                severity="secondary"
+                @click="$router.push('/')"
+              />
+            </div>
+          </div>
+        </template>
+      </Card>
+
+      <!-- Form - only shown if limit not reached -->
+      <form v-if="!(monthlyLimit > 0 && remainingSlots === 0)" @submit.prevent="handleSubmit">
         <!-- Informations Entreprise -->
         <Card class="mb-6 shadow-md border border-gray-200">
           <template #title>
@@ -425,6 +461,7 @@ import InputNumber from 'primevue/inputnumber'
 import Dropdown from 'primevue/dropdown'
 import FileUpload from 'primevue/fileupload'
 import Button from 'primevue/button'
+import Message from 'primevue/message'
 // Message removed; toasts are used instead
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
@@ -436,6 +473,25 @@ const success = ref('')
 const loading = ref(false)
 const committeeMember = ref('')
 const toast = useToast()
+
+const formData = reactive({
+  company_name: '',
+  domain: '',
+  domain_custom: '',
+  promesse_de_valeur: '',
+  infos: '',
+  agent_name: '',
+  confidence_threshold: 0.7,
+  contact_first_name: '',
+  referral_name: '',
+  decision_maker_name: '',
+  pain_point_identifie: '',
+  from_number: '',
+  country: '',
+  timezone: '',
+  objectifs: '',
+  decision_committee: []
+})
 
 // Send diagnostic logs to server-side endpoint so they appear in Render.com logs.
 // Do NOT display these logs to clients in the UI.
@@ -604,7 +660,15 @@ const limitReachedToastShown = ref(false)
 
 const selectedPlanObj = computed(() => plans.value.find(p => p.slug === selectedPlan.value) || null)
 const monthlyLimit = computed(() => Number(selectedPlanObj.value?.monthly_campaign_limit || 0))
+const maxContactsPerCampaign = computed(() => Number(selectedPlanObj.value?.max_contacts_per_campaign || 0))
 const remainingSlots = computed(() => Math.max(0, monthlyLimit.value - (monthlyCount.value || 0)))
+
+// Computed property: date de réinitialisation (1er du mois prochain)
+const firstDayOfNextMonth = computed(() => {
+  const today = new Date()
+  const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1)
+  return nextMonth.toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' })
+})
 
 // Show a user-visible toast when user reaches monthly campaign limit (once per change)
 watch(remainingSlots, (val) => {
