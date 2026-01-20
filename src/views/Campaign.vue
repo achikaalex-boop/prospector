@@ -561,7 +561,31 @@ const loadUserNumbers = async () => {
   }
 }
 
-onMounted(() => { loadMonthlyCount(); loadUserNumbers() })
+const loadUserPlan = async () => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const resp = await fetch(`/api/user-plan?user_id=${user.id}`)
+    if (!resp.ok) return
+    const json = await resp.json()
+    const userPlan = json.plan || json
+    if (userPlan && userPlan.plan_slug) {
+      // Set selectedPlan to the user's actual plan
+      selectedPlan.value = userPlan.plan_slug
+    }
+  } catch (e) {
+    console.error('loadUserPlan error', e)
+  }
+}
+
+onMounted(() => { 
+  loadMonthlyCount()
+  loadUserNumbers()
+  loadPlans()  // Load plans first
+  loadUserPlan()  // Then load user's actual plan
+})
+
+onMounted(() => { loadMonthlyCount() })
 
 const timezoneOptions = [
   { label: 'Africa/Porto-Novo', value: 'Africa/Porto-Novo' },
@@ -727,7 +751,7 @@ const loadPlans = async () => {
   try {
     const resp = await axios.get('/api/plans')
     plans.value = resp.data || []
-    if (plans.value.length > 0) selectedPlan.value = plans.value[0].slug
+    // Don't override selectedPlan here - it will be set by loadUserPlan()
   } catch (e) {
     // ignore, server may not be configured during local dev
   }
@@ -747,9 +771,6 @@ const calculateEstimate = async () => {
     console.error('Estimate error', e)
   }
 }
-
-// Load plans immediately
-loadPlans()
 
 const addCommitteeMember = () => {
   if (committeeMember.value.trim()) {
