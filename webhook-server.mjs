@@ -802,20 +802,29 @@ app.post('/api/create-campaign', async (req, res) => {
     if (minutes > remainingIncluded) overageMinutes = minutes - remainingIncluded
     const overageCostCents = overageMinutes * perMinCents
 
-    // sum user credits
-    let creditCents = 0
-    try {
-      const { data: credits } = await supabase.from('user_credits').select('amount').eq('user_id', userId)
-      if (Array.isArray(credits)) {
-        const sum = credits.reduce((s, r) => s + (Number(r.amount) || 0), 0)
-        creditCents = Math.round(sum * 100)
-      }
-    } catch (e) {}
+    // For paid plans (Starter, Pro), included minutes should cover the campaign
+    // Only check credits if there's an overage AND the plan doesn't provide enough minutes
+    const isPaidPlan = plan && plan.slug && !planIsFree(plan.slug)
+    
+    // If it's a paid plan with included minutes, don't require additional credits
+    if (isPaidPlan && includedMinutes > 0 && overageCostCents === 0) {
+      // Campaign is fully covered by included minutes - proceed
+    } else if (overageCostCents > 0) {
+      // sum user credits only if there's an overage cost
+      let creditCents = 0
+      try {
+        const { data: credits } = await supabase.from('user_credits').select('amount').eq('user_id', userId)
+        if (Array.isArray(credits)) {
+          const sum = credits.reduce((s, r) => s + (Number(r.amount) || 0), 0)
+          creditCents = Math.round(sum * 100)
+        }
+      } catch (e) {}
 
-    // If overage cost > available credits and plan has no included minutes covering it, reject
-    if (overageCostCents > 0 && creditCents < overageCostCents) {
-      const needCents = overageCostCents - creditCents
-      return res.status(402).json({ error: 'Solde insuffisant pour couvrir le coût estimé de la campagne.', required_topup_cents: needCents, required_topup_usd: (needCents/100).toFixed(2) })
+      // If overage cost > available credits, reject
+      if (creditCents < overageCostCents) {
+        const needCents = overageCostCents - creditCents
+        return res.status(402).json({ error: 'Solde insuffisant pour couvrir le coût estimé de la campagne.', required_topup_cents: needCents, required_topup_usd: (needCents/100).toFixed(2) })
+      }
     }
 
     // Otherwise, allowed. Insert campaign and forward to create-batch (enqueue)
