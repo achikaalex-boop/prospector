@@ -665,6 +665,8 @@ watch(() => formData.country, (newCountry) => {
     }
   }
 })
+
+const objectifsOptions = [
   { label: 'Prise de rendez-vous', value: 'Prise de rendez-vous' },
   { label: 'Qualification de prospects', value: 'Qualification de prospects' },
   { label: 'Vente directe', value: 'Vente directe' },
