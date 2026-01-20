@@ -213,37 +213,47 @@ async function getPayPalAccessToken() {
   const params = new URLSearchParams();
   params.append('grant_type', 'client_credentials');
 
-  const resp = await axios.post(tokenUrl, params.toString(), {
-    headers: {
-      Authorization: `Basic ${auth}`,
-      'Content-Type': 'application/x-www-form-urlencoded'
-    }
-  });
-  return resp.data.access_token;
+  try {
+    const resp = await axios.post(tokenUrl, params.toString(), {
+      headers: {
+        Authorization: `Basic ${auth}`,
+        'Content-Type': 'application/x-www-form-urlencoded'
+      }
+    });
+    return resp.data.access_token;
+  } catch (err) {
+    console.error('PayPal auth error:', err.response?.status, err.response?.data || err.message);
+    throw err;
+  }
 }
 
 async function createPayPalOrder(amountCents, currency = 'USD', description = 'Top-up', returnUrl = null, cancelUrl = null) {
-  const accessToken = await getPayPalAccessToken();
-  const url = `${PAYPAL_API_HOST}/v2/checkout/orders`;
-  const body = {
-    intent: 'CAPTURE',
-    purchase_units: [{
-      amount: { currency_code: currency, value: (amountCents / 100).toFixed(2) },
-      description
-    }]
-  };
-  if (returnUrl || cancelUrl) {
-    body.application_context = {}
-    if (returnUrl) body.application_context.return_url = returnUrl
-    if (cancelUrl) body.application_context.cancel_url = cancelUrl
-  }
-  const resp = await axios.post(url, body, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json'
+  try {
+    const accessToken = await getPayPalAccessToken();
+    const url = `${PAYPAL_API_HOST}/v2/checkout/orders`;
+    const body = {
+      intent: 'CAPTURE',
+      purchase_units: [{
+        amount: { currency_code: currency, value: (amountCents / 100).toFixed(2) },
+        description
+      }]
+    };
+    if (returnUrl || cancelUrl) {
+      body.application_context = {}
+      if (returnUrl) body.application_context.return_url = returnUrl
+      if (cancelUrl) body.application_context.cancel_url = cancelUrl
     }
-  });
-  return resp.data;
+    const resp = await axios.post(url, body, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    return resp.data;
+  } catch (err) {
+    console.error('PayPal order creation error:', err.response?.status, err.response?.data || err.message);
+    throw err;
+  }
 }
 
 async function capturePayPalOrder(orderId) {
@@ -346,7 +356,10 @@ app.post('/api/paypal/create-order', async (req, res) => {
 // Create a subscription purchase order (one-time charge for subscription activation)
 app.post('/api/subscribe', async (req, res) => {
   try {
-    if (!PAYPAL_CLIENT_ID || !PAYPAL_SECRET) return res.status(500).json({ error: 'PayPal not configured on server' });
+    if (!PAYPAL_CLIENT_ID || !PAYPAL_SECRET) {
+      console.error('/api/subscribe: PayPal credentials not configured');
+      return res.status(500).json({ error: 'PayPal not configured on server' });
+    }
     const { plan_slug, amount_cents, user_id } = req.body || {}
     if (!plan_slug) return res.status(400).json({ error: 'plan_slug required' })
     if (!amount_cents || Number(amount_cents) <= 0) return res.status(400).json({ error: 'amount_cents required and must be > 0' })
@@ -376,7 +389,7 @@ app.post('/api/subscribe', async (req, res) => {
 
     return res.json(order)
   } catch (e) {
-    console.error('Error in /api/subscribe:', e?.response?.data || e.message || e)
+    console.error('Error in /api/subscribe:', e?.response?.status, e?.response?.data || e.message || e)
     return res.status(500).json({ error: e?.message || 'internal' })
   }
 })
@@ -863,6 +876,10 @@ app.post('/api/create-campaign', async (req, res) => {
 // Convenience top-up endpoint that accepts amount and current user and proxies to create-order
 app.post('/api/topup', async (req, res) => {
   try {
+    if (!PAYPAL_CLIENT_ID || !PAYPAL_SECRET) {
+      console.error('/api/topup: PayPal credentials not configured');
+      return res.status(500).json({ error: 'PayPal not configured on server' });
+    }
     const { amount_cents, currency = 'USD', user_id, description } = req.body || {};
     if (!amount_cents || Number(amount_cents) <= 0) return res.status(400).json({ error: 'amount_cents required and must be > 0' });
 
@@ -892,7 +909,7 @@ app.post('/api/topup', async (req, res) => {
 
     return res.json(order);
   } catch (e) {
-    console.error('Error in /api/topup:', e?.response?.data || e.message || e);
+    console.error('Error in /api/topup:', e?.response?.status, e?.response?.data || e.message || e);
     return res.status(500).json({ error: e?.message || 'internal' });
   }
 });
