@@ -27,8 +27,8 @@
           <div>
             <p class="font-semibold" :class="p.slug === 'pro' ? 'text-white' : 'text-gray-900'">Limites & Tarification</p>
             <ul class="mt-2 space-y-1.5 text-sm">
-              <li><span class="font-semibold">Campagnes/mois :</span> <span class="font-bold">{{ p.monthly_campaign_limit || '—' }}</span></li>
-              <li><span class="font-semibold">Contacts/campagne :</span> <span class="font-bold">{{ p.max_contacts_per_campaign || '—' }}</span></li>
+              <li><span class="font-semibold">Campagnes/mois :</span> <span class="font-bold">{{ p.monthly_campaign_limit || 0 }}</span></li>
+              <li><span class="font-semibold">Contacts/campagne :</span> <span class="font-bold">{{ p.max_contacts_per_campaign || 0 }}</span></li>
               <li><span class="font-semibold">Appels simultanés :</span> <span class="font-bold">{{ p.max_concurrency || p.concurrency || '—' }}</span></li>
               <li><span class="font-semibold">Coût/minute :</span> <span class="font-bold">{{ displayMoney(p.per_min_cents || 0) }} USD</span></li>
             </ul>
@@ -93,8 +93,8 @@ export default {
       return String(desc).split(/[.;\n]+/).map(s => s.trim()).filter(Boolean)
     },    async fetchPlans() {
       try {
-        // DB stores monthly_price_cents and per_min_cents as cents
-            const { data, error } = await supabase.from('plans').select('slug,name,monthly_price_cents,per_min_cents,max_concurrency,included_minutes,monthly_campaign_limit,max_contacts_per_campaign,description,tagline,objective,minutes_expiry_days,card_required,network_priority,soft_limit_percent,has_dedicated_number,has_extra_concurrency')
+        // Select only essential columns that are guaranteed to exist
+        const { data, error } = await supabase.from('plans').select('slug,name,monthly_price_cents,per_min_cents,max_concurrency,max_contacts_per_campaign,monthly_campaign_limit,description')
             if (!error && Array.isArray(data) && data.length) {
               this.uiPlans = data.map(p => ({
                 slug: p.slug,
@@ -102,19 +102,11 @@ export default {
                 monthly_price: (Number(p.monthly_price_cents) || 0) / 100,
                 monthly_price_cents: Number(p.monthly_price_cents) || 0,
                 per_min_cents: Number(p.per_min_cents) || 0,
-                concurrency: Number(p.max_concurrency) || Number(p.concurrency) || 0,
+                concurrency: Number(p.max_concurrency) || 0,
                 max_concurrency: Number(p.max_concurrency) || 0,
-                included_minutes: Number(p.included_minutes) || 0,
+                max_contacts_per_campaign: Number(p.max_contacts_per_campaign) || 0,
                 monthly_campaign_limit: Number(p.monthly_campaign_limit) || 0,
-                description: p.description || '',
-                tagline: p.tagline || '',
-                objective: p.objective || '',
-                minutes_expiry_days: p.minutes_expiry_days || null,
-                card_required: p.card_required === true,
-                network_priority: p.network_priority || 'standard',
-                soft_limit_percent: p.soft_limit_percent || null,
-                has_dedicated_number: p.has_dedicated_number === true,
-                has_extra_concurrency: p.has_extra_concurrency === true
+                description: p.description || ''
               }))
           this.uiPlans.forEach(p => { this.estimatorMinutes[p.slug] = this.defaultEstimateMinutes })
         } else {
