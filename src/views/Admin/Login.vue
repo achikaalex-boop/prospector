@@ -21,10 +21,10 @@
         </Message>
 
         <!-- Login Form -->
-        <form @submit.prevent="submit" class="space-y-4 mb-6">
-          <div>
-            <label for="email" class="block text-sm font-semibold text-gray-700 mb-2">
-              <i class="pi pi-envelope mr-1"></i>Email Administrateur
+        <form @submit.prevent="submit" style="margin-bottom: 1.5rem;">
+          <div style="margin-bottom: 1rem;">
+            <label for="email" style="display: block; font-size: 0.875rem; font-weight: 600; color: #374151; margin-bottom: 0.5rem;">
+              <i class="pi pi-envelope" style="margin-right: 0.25rem;"></i>Email Administrateur
             </label>
             <input 
               id="email"
@@ -35,12 +35,13 @@
               :disabled="isLoading"
               required
               autocomplete="email"
+              style="width: 100%; padding: 0.75rem 1rem; border: 1px solid #d1d5db; border-radius: 0.5rem; background-color: #ffffff; color: #111827; font-size: 1rem;"
             />
           </div>
 
-          <div>
-            <label for="password" class="block text-sm font-semibold text-gray-700 mb-2">
-              <i class="pi pi-lock mr-1"></i>Mot de Passe
+          <div style="margin-bottom: 1rem;">
+            <label for="password" style="display: block; font-size: 0.875rem; font-weight: 600; color: #374151; margin-bottom: 0.5rem;">
+              <i class="pi pi-lock" style="margin-right: 0.25rem;"></i>Mot de Passe
             </label>
             <input 
               id="password"
@@ -51,16 +52,17 @@
               :disabled="isLoading"
               required
               autocomplete="current-password"
+              style="width: 100%; padding: 0.75rem 1rem; border: 1px solid #d1d5db; border-radius: 0.5rem; background-color: #ffffff; color: #111827; font-size: 1rem;"
             />
           </div>
 
           <button 
             type="submit" 
             :disabled="isLoading || !email || !password"
-            class="w-full px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            style="width: 100%; padding: 0.5rem 1rem; background-color: #2563eb; color: white; font-weight: 600; border-radius: 0.5rem; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem; transition: all 0.2s;"
           >
             <ProgressSpinner v-if="isLoading" style="width:20px; height:20px" />
-            <span v-else><i class="pi pi-sign-in mr-1"></i>Connexion</span>
+            <span v-else><i class="pi pi-sign-in" style="margin-right: 0.25rem;"></i>Connexion</span>
           </button>
         </form>
 
@@ -253,57 +255,20 @@ export default {
 </script>
 
 <style scoped>
-.admin-input {
-  width: 100% !important;
-  padding: 0.75rem 1rem !important;
-  border: 1px solid #d1d5db !important;
-  border-radius: 0.5rem !important;
-  background-color: #ffffff !important;
-  color: #111827 !important;
-  font-size: 1rem !important;
-  transition: all 0.2s !important;
-  box-sizing: border-box !important;
-  display: block !important;
-  opacity: 1 !important;
-  visibility: visible !important;
-  position: relative !important;
-  z-index: 1 !important;
-}
-
-.admin-input:focus {
-  outline: none;
-  border-color: #3b82f6 !important;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
-  background-color: #ffffff !important;
-}
-
-.admin-input:disabled {
-  background-color: #f3f4f6 !important;
-  color: #9ca3af !important;
-  cursor: not-allowed;
-}
-
-.admin-input::placeholder {
-  color: #9ca3af !important;
-}
-
-form {
-  position: relative;
-  z-index: 1;
-}
-
-form > div {
-  position: relative;
-  z-index: 1;
-}
-
-label {
-  display: block !important;
-  position: relative !important;
-  z-index: 1 !important;
-}
-
+/* Removed complex scoped styles - using inline styles instead for better control */
 :deep(.p-card) {
   border-radius: 12px;
+  position: relative;
+  z-index: 10;
+}
+
+:deep(.p-card-content) {
+  position: relative;
+  z-index: 10;
+}
+
+:deep(.p-message) {
+  display: block !important;
+  opacity: 1 !important;
 }
 </style>
