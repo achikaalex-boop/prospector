@@ -258,10 +258,36 @@ export default {
 <style scoped>
 :deep(.p-inputtext),
 :deep(.p-password-input) {
-  @apply px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent;
+  @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent !important;
+}
+
+:deep(.p-inputtext::placeholder),
+:deep(.p-password-input::placeholder) {
+  @apply text-gray-400;
 }
 
 :deep(.p-card) {
   border-radius: 12px;
+}
+
+:deep(.p-password) {
+  @apply w-full;
+}
+
+:deep(.p-password .p-password-panel) {
+  @apply rounded-lg;
+}
+
+/* Ensure input fields are visible */
+:deep(input[type="text"]),
+:deep(input[type="email"]),
+:deep(input[type="password"]) {
+  @apply !visible !block w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 !important;
+}
+
+:deep(input[type="text"]:focus),
+:deep(input[type="email"]:focus),
+:deep(input[type="password"]:focus) {
+  @apply ring-2 ring-blue-500 border-transparent !important;
 }
 </style>
