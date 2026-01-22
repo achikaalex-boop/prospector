@@ -76,6 +76,12 @@ const routes = [
     meta: { adminOnly: true }
   },
   {
+    path: '/admin/settings',
+    name: 'AdminSettings',
+    component: () => import('../views/Admin/Settings.vue'),
+    meta: { adminOnly: true }
+  },
+  {
     path: '/topup/complete',
     name: 'TopUpComplete',
     component: () => import('../views/TopUpComplete.vue')

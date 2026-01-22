@@ -378,7 +378,12 @@
             Pour des questions sur ces Conditions :
           </p>
           <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 mt-2">
-            <p><strong>Email :</strong> <a href="mailto:legal@prospector-ai.com" class="text-blue-600 hover:underline">legal@prospector-ai.com</a></p>
+            <p class="font-semibold text-gray-900">📧 Email de Contact</p>
+            <p class="mt-2">
+              <a href="mailto:prospector.ai@gmail.com" class="text-blue-600 hover:underline font-semibold">
+                prospector.ai@gmail.com
+              </a>
+            </p>
           </div>
         </section>
       </div>

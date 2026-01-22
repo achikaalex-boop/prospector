@@ -230,9 +230,15 @@
             Pour des questions concernant cette politique ou l'exercice de vos droits :
           </p>
           <div class="bg-gray-50 p-6 rounded-lg border border-gray-200">
-            <p><strong>Email :</strong> <a href="mailto:privacy@prospector-ai.com" class="text-blue-600 hover:underline">privacy@prospector-ai.com</a></p>
-            <p class="mt-2"><strong>Adresse postale :</strong></p>
-            <p class="ml-4">Prospector AI<br>Support - Privacy<br>À déterminer</p>
+            <p class="font-semibold text-gray-900">📧 Email de Contact</p>
+            <p class="mt-2">
+              <a href="mailto:prospector.ai@gmail.com" class="text-blue-600 hover:underline font-semibold">
+                prospector.ai@gmail.com
+              </a>
+            </p>
+            <p class="text-sm text-gray-600 mt-3">
+              Veuillez nous contacter directement pour toute question relative à la confidentialité ou pour exercer vos droits (accès, rectification, suppression, etc.).
+            </p>
           </div>
         </section>
       </div>

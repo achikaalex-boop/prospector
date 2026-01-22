@@ -854,6 +854,22 @@ app.get('/api/app-settings/support-email', async (_req, res) => {
   }
 })
 
+// Public endpoint to fetch contact email
+app.get('/api/app-settings/contact-email', async (_req, res) => {
+  if (!supabase) return res.status(500).json({ error: 'Supabase not configured' })
+  try {
+    const { data, error } = await supabase.from('app_settings').select('value').eq('key', 'contact_email').limit(1).single()
+    if (error) {
+      // If not found, return default
+      return res.json({ contact_email: 'prospector.ai@gmail.com' })
+    }
+    return res.json({ contact_email: data ? data.value : 'prospector.ai@gmail.com' })
+  } catch (e) {
+    console.error('Error fetching contact_email:', e)
+    return res.json({ contact_email: 'prospector.ai@gmail.com' })
+  }
+})
+
 // Admin endpoint to upsert an app setting (key/value)
 app.post('/api/admin/app-settings', async (req, res) => {
   try {
