@@ -94,20 +94,24 @@
         Consultez nos politiques et conditions d'utilisation pour comprendre comment nous protégeons vos données et nos termes de service.
       </p>
       <div class="flex gap-4 flex-wrap">
-        <router-link
-          to="/privacy-policy"
+        <a
+          href="/privacy-policy"
+          target="_blank"
+          rel="noopener noreferrer"
           class="inline-flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition text-sm font-medium"
         >
           <i class="pi pi-lock text-gray-600"></i>
           Politique de Confidentialité
-        </router-link>
-        <router-link
-          to="/terms-of-service"
+        </a>
+        <a
+          href="/terms-of-service"
+          target="_blank"
+          rel="noopener noreferrer"
           class="inline-flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition text-sm font-medium"
         >
           <i class="pi pi-file text-gray-600"></i>
           Conditions d'Utilisation
-        </router-link>
+        </a>
       </div>
     </div>
 

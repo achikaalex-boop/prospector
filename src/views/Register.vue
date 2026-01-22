@@ -74,13 +74,14 @@
                 />
                 <label for="terms" class="cursor-pointer">
                   <span class="text-sm text-gray-700">J'accepte les </span>
-                  <router-link
-                    to="/terms-of-service"
+                  <a
+                    href="/terms-of-service"
                     class="text-blue-600 hover:underline font-semibold"
                     target="_blank"
+                    rel="noopener noreferrer"
                   >
                     Conditions d'utilisation
-                  </router-link>
+                  </a>
                 </label>
               </div>
 
@@ -95,13 +96,14 @@
                 />
                 <label for="privacy" class="cursor-pointer">
                   <span class="text-sm text-gray-700">J'accepte la </span>
-                  <router-link
-                    to="/privacy-policy"
+                  <a
+                    href="/privacy-policy"
                     class="text-blue-600 hover:underline font-semibold"
                     target="_blank"
+                    rel="noopener noreferrer"
                   >
                     Politique de Confidentialité
-                  </router-link>
+                  </a>
                 </label>
               </div>
 
