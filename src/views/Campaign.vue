@@ -761,57 +761,9 @@ const handleFileUpload = (event) => {
         }
         
         if (rowErrors.length === 0) {
-          vatransfert_call_number', label: 'Numéro de transfert d\'appel' }
-  ]
-
-  // Vérifier les champs requis
-  const missingFields = requiredChecks.filter(check => !formData[check.key] || String(formData[check.key]).trim() === '')
-  if (missingFields.length > 0) {
-    error.value = `Champs obligatoires manquants: ${missingFields.map(f => f.label).join(', ')}`
-    try { toast.add({ severity: 'error', summary: 'Champs requis', detail: error.value, life: 5000 }) } catch (e) {}
-    return
-  }
-
-  // Valider le numéro de transfert
-  if (!validatePhoneNumber(formData.transfert_call_number)) {
-    error.value = 'Numéro de transfert invalide. Format attendu: +33612345678 ou 0612345678'
-    try { toast.add({ severity: 'error', summary: 'Numéro invalide', detail: error.value, life: 5000 }) } catch (e) {}
-    return
-  }
-
-  // Vérifier que au moins un contact est uploadé
-  if (!contacts.value || contacts.value.length === 0) {
-    error.value = 'Vous devez uploaderau moins un contact'
-    try { toast.add({ severity: 'error', summary: 'Pas de contacts', detail: error.value, life: 5000 }) } catch (e) {}
-    return
-  }
-
-  error.value = ''
-  loading.value = true
-
-  try {
-    sendServerLog(`Tentative de création de campagne: ${formData.company_name} avec ${contacts.value.length} contacts`)
-    const { data: { user }, error: authErr } = await supabase.auth.getUser()
-    sendServerLog(`Résultat supabase.auth.getUser(): ${user ? user.id : 'aucun user'}`, { user: user ? user.id : null })
-    if (!user) throw new Error('Utilisateur non authentifié')
-
-    // Prepare payload to send to server for validation + creation
-    const payload = {
-      user_id: user.id,
-      company_name: sanitizeInput(formData.company_name),
-      domain: sanitizeInput(formData.domain === 'Autre' ? formData.domain_custom : formData.domain),
-      promesse_de_valeur: sanitizeInput(formData.promesse_de_valeur),
-      confidence_threshold: formData.confidence_threshold || 0.7,
-      agent_name: sanitizeInput(formData.agent_name),
-      referral_name: sanitizeInput(formData.referral_name),
-      infos: sanitizeInput(formData.infos),
-      objectifs: sanitizeInput(formData.objectifs),
-      contacts: contacts.value,
-      contacts_count: contacts.value.length,
-      estimated_avg_call_seconds: Number(estimatedAvgCallSeconds.value) || 60,
-      from_number: formData.from_number,
-      transfert_call_number: formData.transfert_call_number
-    }       validationErrors.push(...rowErrors)
+          validContacts.push(row)
+        } else {
+          validationErrors.push(...rowErrors)
         }
       })
       

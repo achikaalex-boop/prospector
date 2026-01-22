@@ -5,49 +5,46 @@ const routes = [
   {
     path: '/',
     name: 'Dashboard',
-    component: () => import('../views/Dashboard.vue'),
+    component: () => import(/* webpackChunkName: "dashboard" */ '../views/Dashboard.vue'),
     meta: { requiresAuth: true }
   },
   {
     path: '/campaign',
     name: 'Campaign',
-    component: () => import('../views/Campaign.vue'),
+    component: () => import(/* webpackChunkName: "campaign" */ '../views/Campaign.vue'),
     meta: { requiresAuth: true }
   },
   {
     path: '/login',
     name: 'Login',
-    component: () => import('../views/Login.vue')
+    component: () => import(/* webpackChunkName: "auth" */ '../views/Login.vue')
   },
   {
     path: '/register',
     name: 'Register',
-    component: () => import('../views/Register.vue')
+    component: () => import(/* webpackChunkName: "auth" */ '../views/Register.vue')
   },
   {
     path: '/techniques',
     name: 'Techniques',
-    component: () => import('../views/Techniques.vue')
-  }
-  ,
+    component: () => import(/* webpackChunkName: "pages" */ '../views/Techniques.vue')
+  },
   {
     path: '/topup',
     name: 'TopUp',
-    component: () => import('../views/TopUp.vue'),
+    component: () => import(/* webpackChunkName: "pages" */ '../views/TopUp.vue'),
     meta: { requiresAuth: true }
-  }
-  ,
+  },
   {
     path: '/account',
     name: 'Account',
-    component: () => import('../views/Account.vue'),
+    component: () => import(/* webpackChunkName: "pages" */ '../views/Account.vue'),
     meta: { requiresAuth: true }
-  }
-  ,
+  },
   {
     path: '/pricing',
     name: 'Pricing',
-    component: () => import('../views/Pricing.vue')
+    component: () => import(/* webpackChunkName: "pages" */ '../views/Pricing.vue')
   }
   ,
   {
