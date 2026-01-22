@@ -256,38 +256,85 @@ export default {
 </script>
 
 <style scoped>
-:deep(.p-inputtext),
-:deep(.p-password-input) {
-  @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent !important;
+/* Ensure all input fields are visible */
+:deep(.p-inputtext) {
+  width: 100% !important;
+  padding: 0.75rem 1rem !important;
+  border: 1px solid #d1d5db !important;
+  border-radius: 0.5rem !important;
+  background-color: white !important;
+  color: #111827 !important;
+  display: block !important;
 }
 
-:deep(.p-inputtext::placeholder),
+:deep(.p-inputtext:focus) {
+  outline: none !important;
+  ring: 2px solid #3b82f6 !important;
+  border-color: transparent !important;
+}
+
+:deep(.p-inputtext::placeholder) {
+  color: #9ca3af !important;
+}
+
+/* Password component styling */
+:deep(.p-password) {
+  width: 100% !important;
+  display: flex !important;
+}
+
+:deep(.p-password-input) {
+  width: 100% !important;
+  padding: 0.75rem 1rem !important;
+  border: 1px solid #d1d5db !important;
+  border-radius: 0.5rem !important;
+  background-color: white !important;
+  color: #111827 !important;
+}
+
+:deep(.p-password-input:focus) {
+  outline: none !important;
+  ring: 2px solid #3b82f6 !important;
+  border-color: transparent !important;
+}
+
 :deep(.p-password-input::placeholder) {
-  @apply text-gray-400;
+  color: #9ca3af !important;
+}
+
+/* Toggle mask button styling */
+:deep(.p-password .p-icon-field-right > i) {
+  color: #6b7280 !important;
+}
+
+:deep(.p-password .p-password-toggle-icon) {
+  color: #6b7280 !important;
+  cursor: pointer !important;
 }
 
 :deep(.p-card) {
   border-radius: 12px;
 }
 
-:deep(.p-password) {
-  @apply w-full;
-}
-
-:deep(.p-password .p-password-panel) {
-  @apply rounded-lg;
-}
-
-/* Ensure input fields are visible */
+/* Generic input styling fallback */
 :deep(input[type="text"]),
 :deep(input[type="email"]),
 :deep(input[type="password"]) {
-  @apply !visible !block w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 !important;
+  width: 100% !important;
+  padding: 0.75rem 1rem !important;
+  border: 1px solid #d1d5db !important;
+  border-radius: 0.5rem !important;
+  background-color: white !important;
+  color: #111827 !important;
+  box-sizing: border-box !important;
+  display: block !important;
 }
 
 :deep(input[type="text"]:focus),
 :deep(input[type="email"]:focus),
 :deep(input[type="password"]:focus) {
-  @apply ring-2 ring-blue-500 border-transparent !important;
+  outline: none !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
 }
 </style>
