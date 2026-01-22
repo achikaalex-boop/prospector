@@ -87,6 +87,30 @@
 
     </div>
 
+    <!-- Section légale et policies -->
+    <div class="mt-8 bg-gradient-to-r from-gray-50 to-gray-100 p-6 rounded-lg border border-gray-200 shadow-sm">
+      <h3 class="font-semibold text-gray-900 mb-4">📋 Documents Légaux</h3>
+      <p class="text-sm text-gray-600 mb-4">
+        Consultez nos politiques et conditions d'utilisation pour comprendre comment nous protégeons vos données et nos termes de service.
+      </p>
+      <div class="flex gap-4 flex-wrap">
+        <router-link
+          to="/privacy-policy"
+          class="inline-flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition text-sm font-medium"
+        >
+          <i class="pi pi-lock text-gray-600"></i>
+          Politique de Confidentialité
+        </router-link>
+        <router-link
+          to="/terms-of-service"
+          class="inline-flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition text-sm font-medium"
+        >
+          <i class="pi pi-file text-gray-600"></i>
+          Conditions d'Utilisation
+        </router-link>
+      </div>
+    </div>
+
   </div>
 </template>
 

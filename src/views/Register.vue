@@ -61,13 +61,62 @@
               <small class="text-gray-500 text-sm mt-1">Minimum 6 caractères</small>
             </div>
 
+            <!-- Acceptation des conditions -->
+            <div class="space-y-3 bg-blue-50 p-4 rounded-lg border border-blue-200">
+              <div class="flex items-start gap-3">
+                <input
+                  v-model="termsAccepted"
+                  type="checkbox"
+                  id="terms"
+                  class="mt-1 w-4 h-4 text-blue-600 rounded cursor-pointer"
+                  required
+                  :disabled="loading"
+                />
+                <label for="terms" class="cursor-pointer">
+                  <span class="text-sm text-gray-700">J'accepte les </span>
+                  <router-link
+                    to="/terms-of-service"
+                    class="text-blue-600 hover:underline font-semibold"
+                    target="_blank"
+                  >
+                    Conditions d'utilisation
+                  </router-link>
+                </label>
+              </div>
+
+              <div class="flex items-start gap-3">
+                <input
+                  v-model="privacyAccepted"
+                  type="checkbox"
+                  id="privacy"
+                  class="mt-1 w-4 h-4 text-blue-600 rounded cursor-pointer"
+                  required
+                  :disabled="loading"
+                />
+                <label for="privacy" class="cursor-pointer">
+                  <span class="text-sm text-gray-700">J'accepte la </span>
+                  <router-link
+                    to="/privacy-policy"
+                    class="text-blue-600 hover:underline font-semibold"
+                    target="_blank"
+                  >
+                    Politique de Confidentialité
+                  </router-link>
+                </label>
+              </div>
+
+              <div v-if="!termsAccepted || !privacyAccepted" class="text-xs text-red-600 mt-2">
+                ⚠️ Vous devez accepter les deux documents pour continuer
+              </div>
+            </div>
+
             <Button
               type="submit"
               label="Créer mon compte"
               icon="pi pi-user-plus"
               class="w-full"
               :loading="loading"
-              :disabled="loading"
+              :disabled="loading || !termsAccepted || !privacyAccepted"
             />
           </form>
 
@@ -97,6 +146,8 @@ const router = useRouter()
 const fullName = ref('')
 const email = ref('')
 const password = ref('')
+const termsAccepted = ref(false)
+const privacyAccepted = ref(false)
 const error = ref('')
 const success = ref('')
 const loading = ref(false)
