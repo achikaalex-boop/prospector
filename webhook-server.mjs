@@ -809,8 +809,7 @@ app.post('/api/create-campaign', async (req, res) => {
         contact_email: c.email || null,
         agent_name: campaignRow.agent_name,
         company_name: campaignRow.company_name,
-        [payload.current_time_tz || `current_time_${payload.timezone}`]: true,
-        [payload.current_calendar_tz || `current_calendar_${payload.timezone}`]: true
+        transfert_call_number: payload.transfert_call_number || null
       }
     }))
 
@@ -823,8 +822,7 @@ app.post('/api/create-campaign', async (req, res) => {
       from_number: payload.from_number || process.env.VITE_RETELL_FROM_NUMBER || null,
       tasks,
       send_now: true,
-      reserved_concurrency: reservedConcurrency,
-      call_time_window: payload.call_time_window || { windows: [{ start: 0, end: 1440 }], timezone: payload.timezone || 'UTC' }
+      reserved_concurrency: reservedConcurrency
     }
 
     try {

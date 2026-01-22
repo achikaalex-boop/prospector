@@ -39,11 +39,7 @@ const payload = {
   ],
   send_now: true,
   trigger_timestamp: Date.now(),
-  reserved_concurrency: 1,
-  call_time_window: {
-    windows: [{ start: 0, end: 1440 }],
-    timezone: 'America/Los_Angeles'
-  }
+  reserved_concurrency: 1
 }
 
 async function waitForServerAndPost() {

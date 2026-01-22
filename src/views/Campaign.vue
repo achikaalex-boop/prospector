@@ -284,47 +284,20 @@
                   >Sélectionnez le numéro utilisé pour émettre les appels.</small
                 >
               </div>
-              <div>
-                <label class="block mb-2 font-semibold text-gray-700"
-                  ><i class="pi pi-asterisk text-red-500 text-xs mr-1"></i>Pays *</label
-                >
-                <Dropdown
-                  v-model="formData.country"
-                  :options="countryOptions"
-                  placeholder="Sélectionnez un pays (requis)"
-                  class="w-full"
-                  filter
-                  required
-                  @change="$forceUpdate()"
-                />
-                <small class="text-gray-500 text-sm mt-1 block"
-                  >Le pays détermine les fuseaux horaires disponibles
-                </small>
-              </div>
 
               <div>
                 <label class="block mb-2 font-semibold text-gray-700"
-                  ><i class="pi pi-asterisk text-red-500 text-xs mr-1"></i>Fuseau horaire d'appel *</label
+                  ><i class="pi pi-asterisk text-red-500 text-xs mr-1"></i>Numéro de transfert d'appel *</label
                 >
-                <Dropdown
-                  v-model="formData.timezone"
-                  :options="availableTimezones"
-                  :disabled="!formData.country"
-                  optionLabel="label"
-                  optionValue="value"
-                  :placeholder="formData.country ? 'Sélectionnez un fuseau horaire' : 'Choisissez d\'abord un pays'"
+                <InputText
+                  v-model="formData.transfert_call_number"
+                  placeholder="Ex: +33612345678"
                   class="w-full"
                   required
                 />
-                <small v-if="!formData.country" class="text-orange-600 text-sm mt-1 block font-semibold">
-                  ⚠ Vous devez d'abord sélectionner un pays
+                <small class="text-gray-500 text-sm mt-1 block">
+                  Le numéro vers lequel transférer l'appel si le lead demande à parler à un humain. L'agent recevra un résumé bref de la discussion pour faciliter la prise de l'appel.
                 </small>
-                <small v-else-if="availableTimezones.length === 1" class="text-green-600 text-sm mt-1 block">
-                  ✓ Fuseau horaire auto-sélectionné pour ce pays
-                </small>
-                <small v-else class="text-gray-500 text-sm mt-1 block"
-                  >Ce pays a {{ availableTimezones.length }} fuseaux horaires. Sélectionnez le vôtre.</small
-                >
               </div>
             </div>
           </template>
@@ -494,8 +467,7 @@ const formData = reactive({
   decision_maker_name: '',
   pain_point_identifie: '',
   from_number: '',
-  country: '',
-  timezone: '',
+  transfert_call_number: '',
   objectifs: '',
   decision_committee: []
 })
@@ -587,108 +559,7 @@ onMounted(() => {
 
 onMounted(() => { loadMonthlyCount() })
 
-const timezoneOptions = [
-  { label: 'Africa/Porto-Novo', value: 'Africa/Porto-Novo' },
-  { label: 'Africa/Cairo', value: 'Africa/Cairo' },
-  { label: 'Africa/Johannesburg', value: 'Africa/Johannesburg' },
-  { label: 'America/Los_Angeles', value: 'America/Los_Angeles' },
-  { label: 'America/Denver', value: 'America/Denver' },
-  { label: 'America/Chicago', value: 'America/Chicago' },
-  { label: 'America/New_York', value: 'America/New_York' },
-  { label: 'America/Phoenix', value: 'America/Phoenix' },
-  { label: 'America/Anchorage', value: 'America/Anchorage' },
-  { label: 'America/Halifax', value: 'America/Halifax' },
-  { label: 'America/Sao_Paulo', value: 'America/Sao_Paulo' },
-  { label: 'Europe/London', value: 'Europe/London' },
-  { label: 'Europe/Paris', value: 'Europe/Paris' },
-  { label: 'Europe/Zurich', value: 'Europe/Zurich' },
-  { label: 'Europe/Berlin', value: 'Europe/Berlin' },
-  { label: 'Asia/Dubai', value: 'Asia/Dubai' },
-  { label: 'Asia/Kolkata', value: 'Asia/Kolkata' },
-  { label: 'Asia/Shanghai', value: 'Asia/Shanghai' },
-  { label: 'Asia/Tokyo', value: 'Asia/Tokyo' },
-  { label: 'Australia/Sydney', value: 'Australia/Sydney' },
-  { label: 'Pacific/Auckland', value: 'Pacific/Auckland' },
-  { label: 'UTC', value: 'UTC' }
-]
-
-// Mapping pays -> fuseaux horaires
-const countryTimezoneMap = {
-  'Afghanistan': ['Asia/Kabul'],
-  'Albania': ['Europe/Tirane'],
-  'Algeria': ['Africa/Algiers'],
-  'Argentina': ['America/Argentina/Buenos_Aires'],
-  'Australia': ['Australia/Sydney', 'Australia/Melbourne', 'Australia/Brisbane', 'Australia/Perth', 'Australia/Adelaide'],
-  'Austria': ['Europe/Vienna'],
-  'Bahrain': ['Asia/Bahrain'],
-  'Bangladesh': ['Asia/Dhaka'],
-  'Belgium': ['Europe/Brussels'],
-  'Benin': ['Africa/Porto-Novo'],
-  'Brazil': ['America/Sao_Paulo', 'America/Rio_Branco'],
-  'Canada': ['America/Vancouver', 'America/Edmonton', 'America/Winnipeg', 'America/Toronto', 'America/Halifax'],
-  'China': ['Asia/Shanghai'],
-  'Denmark': ['Europe/Copenhagen'],
-  'Egypt': ['Africa/Cairo'],
-  'Finland': ['Europe/Helsinki'],
-  'France': ['Europe/Paris'],
-  'Germany': ['Europe/Berlin'],
-  'Ghana': ['Africa/Accra'],
-  'Greece': ['Europe/Athens'],
-  'Hong Kong': ['Asia/Hong_Kong'],
-  'India': ['Asia/Kolkata'],
-  'Indonesia': ['Asia/Jakarta'],
-  'Iran': ['Asia/Tehran'],
-  'Iraq': ['Asia/Baghdad'],
-  'Israel': ['Asia/Jerusalem'],
-  'Italy': ['Europe/Rome'],
-  'Japan': ['Asia/Tokyo'],
-  'Kenya': ['Africa/Nairobi'],
-  'Malaysia': ['Asia/Kuala_Lumpur'],
-  'Mexico': ['America/Mexico_City'],
-  'Netherlands': ['Europe/Amsterdam'],
-  'New Zealand': ['Pacific/Auckland'],
-  'Nigeria': ['Africa/Lagos'],
-  'Pakistan': ['Asia/Karachi'],
-  'Peru': ['America/Lima'],
-  'Philippines': ['Asia/Manila'],
-  'Poland': ['Europe/Warsaw'],
-  'Portugal': ['Europe/Lisbon'],
-  'Russia': ['Europe/Moscow', 'Asia/Vladivostok'],
-  'Saudi Arabia': ['Asia/Riyadh'],
-  'Singapore': ['Asia/Singapore'],
-  'South Africa': ['Africa/Johannesburg'],
-  'South Korea': ['Asia/Seoul'],
-  'Spain': ['Europe/Madrid'],
-  'Sweden': ['Europe/Stockholm'],
-  'Switzerland': ['Europe/Zurich'],
-  'Thailand': ['Asia/Bangkok'],
-  'Turkey': ['Europe/Istanbul'],
-  'UAE': ['Asia/Dubai'],
-  'United Kingdom': ['Europe/London'],
-  'United States': ['America/Los_Angeles', 'America/Denver', 'America/Chicago', 'America/New_York'],
-  'Vietnam': ['Asia/Ho_Chi_Minh']
-}
-
-const countryOptions = Object.keys(countryTimezoneMap).sort()
-
-const availableTimezones = computed(() => {
-  const timezones = countryTimezoneMap[formData.country] || []
-  return timezones.map(tz => ({ label: tz, value: tz }))
-})
-
-// Auto-select timezone when country changes
-watch(() => formData.country, (newCountry) => {
-  if (newCountry) {
-    const tzs = countryTimezoneMap[newCountry] || []
-    // Si un seul fuseau, le sélectionner automatiquement
-    if (tzs.length === 1) {
-      formData.timezone = tzs[0]
-    } else {
-      // Si plusieurs, réinitialiser pour forcer le choix
-      formData.timezone = ''
-    }
-  }
-})
+// Timezone management removed - no longer needed for Retell API
 
 const objectifsOptions = [
   { label: 'Prise de rendez-vous', value: 'Prise de rendez-vous' },
@@ -928,10 +799,7 @@ const handleSubmit = async () => {
       contacts_count: contacts.value.length,
       estimated_avg_call_seconds: Number(estimatedAvgCallSeconds.value) || 60,
       from_number: formData.from_number,
-      timezone: formData.timezone,
-      country: formData.country,
-      current_time_tz: `{{current_time_${formData.timezone}}}`,
-      current_calendar_tz: `{{current_calendar_${formData.timezone}}}`
+      transfert_call_number: formData.transfert_call_number
     }
 
     try {
