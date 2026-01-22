@@ -87,7 +87,7 @@
       <div v-else class="space-y-4">
         <div class="flex items-center gap-2 mb-4">
           <Badge :value="`${rows.length} résultat${rows.length > 1 ? 's' : ''}`" severity="info" />
-          <span class="text-sm text-gray-600">{{ `Affichage ${(currentPage - 1) * pageSize + 1}} à ${Math.min(currentPage * pageSize, rows.length)} de ${rows.length}` }}</span>
+          <span class="text-sm text-gray-600">{{ `Affichage ${(currentPage - 1) * pageSize + 1} à ${Math.min(currentPage * pageSize, rows.length)} de ${rows.length}` }}</span>
         </div>
 
         <div class="grid grid-cols-1 gap-4">
