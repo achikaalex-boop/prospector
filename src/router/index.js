@@ -110,6 +110,19 @@ const isAdminTokenValid = () => {
 }
 
 router.beforeEach(async (to, from, next) => {
+  // Pages publiques - pas de protection
+  const publicPages = ['/privacy-policy', '/terms-of-service', '/admin', '/techniques', '/pricing', '/login', '/register']
+  
+  if (publicPages.includes(to.path)) {
+    // Pour /admin, check si déjà connecté en tant qu'admin
+    if (to.path === '/admin' && isAdminTokenValid()) {
+      next({ name: 'AdminDashboard' })
+      return
+    }
+    next()
+    return
+  }
+
   try {
     const { data: { session } } = await supabase.auth.getSession()
     
@@ -126,16 +139,11 @@ router.beforeEach(async (to, from, next) => {
     // Protected routes that require a logged-in user (not admin-only routes)
     if (to.meta && to.meta.requiresAuth && !session) {
       next('/login')
-    } else if ((to.path === '/login' || to.path === '/register') && session) {
-      next('/')
-    } else if (to.path === '/admin' && isAdminTokenValid()) {
-      // If already logged in as admin, redirect to dashboard
-      next({ name: 'AdminDashboard' })
     } else {
       next()
     }
   } catch (error) {
-    // Si Supabase n'est pas configuré, rediriger vers login for user-only routes
+    // Si Supabase n'est pas configuré
     console.error('Erreur Supabase:', error)
     if (to.meta && to.meta.requiresAuth) {
       next('/login')

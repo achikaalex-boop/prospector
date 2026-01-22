@@ -26,12 +26,12 @@
             <label for="email" class="block text-sm font-semibold text-gray-700 mb-2">
               <i class="pi pi-envelope mr-1"></i>Email Administrateur
             </label>
-            <InputText 
+            <input 
               id="email"
               v-model="email" 
               type="email"
               placeholder="admin@example.com"
-              class="w-full"
+              class="admin-input"
               :disabled="isLoading"
               required
               autocomplete="email"
@@ -42,13 +42,12 @@
             <label for="password" class="block text-sm font-semibold text-gray-700 mb-2">
               <i class="pi pi-lock mr-1"></i>Mot de Passe
             </label>
-            <Password 
+            <input 
               id="password"
               v-model="password" 
+              type="password"
               placeholder="••••••••"
-              class="w-full"
-              input-class="w-full"
-              toggle-mask
+              class="admin-input"
               :disabled="isLoading"
               required
               autocomplete="current-password"
@@ -104,14 +103,12 @@
 import axios from 'axios'
 import Card from 'primevue/card'
 import Message from 'primevue/message'
-import InputText from 'primevue/inputtext'
-import Password from 'primevue/password'
 import Divider from 'primevue/divider'
 import ProgressSpinner from 'primevue/progressspinner'
 
 export default {
   name: 'AdminLogin',
-  components: { Card, Message, InputText, Password, Divider, ProgressSpinner },
+  components: { Card, Message, Divider, ProgressSpinner },
   data() { 
     return { 
       email: '', 
@@ -256,85 +253,36 @@ export default {
 </script>
 
 <style scoped>
-/* Ensure all input fields are visible */
-:deep(.p-inputtext) {
-  width: 100% !important;
-  padding: 0.75rem 1rem !important;
-  border: 1px solid #d1d5db !important;
-  border-radius: 0.5rem !important;
-  background-color: white !important;
-  color: #111827 !important;
-  display: block !important;
+.admin-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  background-color: white;
+  color: #111827;
+  font-size: 1rem;
+  transition: all 0.2s;
+  box-sizing: border-box;
+  display: block;
 }
 
-:deep(.p-inputtext:focus) {
-  outline: none !important;
-  ring: 2px solid #3b82f6 !important;
-  border-color: transparent !important;
+.admin-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
-:deep(.p-inputtext::placeholder) {
-  color: #9ca3af !important;
+.admin-input:disabled {
+  background-color: #f3f4f6;
+  color: #9ca3af;
+  cursor: not-allowed;
 }
 
-/* Password component styling */
-:deep(.p-password) {
-  width: 100% !important;
-  display: flex !important;
-}
-
-:deep(.p-password-input) {
-  width: 100% !important;
-  padding: 0.75rem 1rem !important;
-  border: 1px solid #d1d5db !important;
-  border-radius: 0.5rem !important;
-  background-color: white !important;
-  color: #111827 !important;
-}
-
-:deep(.p-password-input:focus) {
-  outline: none !important;
-  ring: 2px solid #3b82f6 !important;
-  border-color: transparent !important;
-}
-
-:deep(.p-password-input::placeholder) {
-  color: #9ca3af !important;
-}
-
-/* Toggle mask button styling */
-:deep(.p-password .p-icon-field-right > i) {
-  color: #6b7280 !important;
-}
-
-:deep(.p-password .p-password-toggle-icon) {
-  color: #6b7280 !important;
-  cursor: pointer !important;
+.admin-input::placeholder {
+  color: #9ca3af;
 }
 
 :deep(.p-card) {
   border-radius: 12px;
-}
-
-/* Generic input styling fallback */
-:deep(input[type="text"]),
-:deep(input[type="email"]),
-:deep(input[type="password"]) {
-  width: 100% !important;
-  padding: 0.75rem 1rem !important;
-  border: 1px solid #d1d5db !important;
-  border-radius: 0.5rem !important;
-  background-color: white !important;
-  color: #111827 !important;
-  box-sizing: border-box !important;
-  display: block !important;
-}
-
-:deep(input[type="text"]:focus),
-:deep(input[type="email"]:focus),
-:deep(input[type="password"]:focus) {
-  outline: none !important;
-  border-color: #3b82f6 !important;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
 }
 </style>
