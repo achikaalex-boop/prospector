@@ -454,6 +454,23 @@ const loading = ref(false)
 const committeeMember = ref('')
 const toast = useToast()
 
+// Validation utilities
+const validatePhoneNumber = (num) => {
+  if (!num) return false
+  const cleaned = String(num).replace(/\D/g, '')
+  return /^1?[1-9]\d{1,14}$/.test(cleaned)
+}
+
+const sanitizeInput = (str) => {
+  if (typeof str !== 'string') return str
+  return str.trim().slice(0, 500).replace(/[<>]/g, '')
+}
+
+const validateEmailFormat = (email) => {
+  if (!email) return true // Optionnel
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+}
+
 const formData = reactive({
   company_name: '',
   domain: '',
@@ -720,7 +737,91 @@ const handleFileUpload = (event) => {
     try {
       const text = e.target.result
       const parsed = parseCSV(text)
-      contacts.value = parsed
+      
+      // Valider chaque ligne
+      const validationErrors = []
+      const validContacts = []
+      
+      parsed.forEach((row, idx) => {
+        const rowNum = idx + 2 // +2 car CSV a header et indexing commence à 1
+        const rowErrors = []
+        
+        // Vérifier champs obligatoires
+        if (!row.nom?.trim()) rowErrors.push(`Ligne ${rowNum}: nom manquant`)
+        if (!row.telephone?.trim()) rowErrors.push(`Ligne ${rowNum}: téléphone manquant`)
+        
+        // Valider téléphone
+        if (row.telephone && !validatePhoneNumber(row.telephone)) {
+          rowErrors.push(`Ligne ${rowNum}: numéro invalide "${row.telephone}"`)
+        }
+        
+        // Valider email si présent
+        if (row.email && !validateEmailFormat(row.email)) {
+          rowErrors.push(`Ligne ${rowNum}: email invalide "${row.email}"`)
+        }
+        
+        if (rowErrors.length === 0) {
+          vatransfert_call_number', label: 'Numéro de transfert d\'appel' }
+  ]
+
+  // Vérifier les champs requis
+  const missingFields = requiredChecks.filter(check => !formData[check.key] || String(formData[check.key]).trim() === '')
+  if (missingFields.length > 0) {
+    error.value = `Champs obligatoires manquants: ${missingFields.map(f => f.label).join(', ')}`
+    try { toast.add({ severity: 'error', summary: 'Champs requis', detail: error.value, life: 5000 }) } catch (e) {}
+    return
+  }
+
+  // Valider le numéro de transfert
+  if (!validatePhoneNumber(formData.transfert_call_number)) {
+    error.value = 'Numéro de transfert invalide. Format attendu: +33612345678 ou 0612345678'
+    try { toast.add({ severity: 'error', summary: 'Numéro invalide', detail: error.value, life: 5000 }) } catch (e) {}
+    return
+  }
+
+  // Vérifier que au moins un contact est uploadé
+  if (!contacts.value || contacts.value.length === 0) {
+    error.value = 'Vous devez uploaderau moins un contact'
+    try { toast.add({ severity: 'error', summary: 'Pas de contacts', detail: error.value, life: 5000 }) } catch (e) {}
+    return
+  }
+
+  error.value = ''
+  loading.value = true
+
+  try {
+    sendServerLog(`Tentative de création de campagne: ${formData.company_name} avec ${contacts.value.length} contacts`)
+    const { data: { user }, error: authErr } = await supabase.auth.getUser()
+    sendServerLog(`Résultat supabase.auth.getUser(): ${user ? user.id : 'aucun user'}`, { user: user ? user.id : null })
+    if (!user) throw new Error('Utilisateur non authentifié')
+
+    // Prepare payload to send to server for validation + creation
+    const payload = {
+      user_id: user.id,
+      company_name: sanitizeInput(formData.company_name),
+      domain: sanitizeInput(formData.domain === 'Autre' ? formData.domain_custom : formData.domain),
+      promesse_de_valeur: sanitizeInput(formData.promesse_de_valeur),
+      confidence_threshold: formData.confidence_threshold || 0.7,
+      agent_name: sanitizeInput(formData.agent_name),
+      referral_name: sanitizeInput(formData.referral_name),
+      infos: sanitizeInput(formData.infos),
+      objectifs: sanitizeInput(formData.objectifs),
+      contacts: contacts.value,
+      contacts_count: contacts.value.length,
+      estimated_avg_call_seconds: Number(estimatedAvgCallSeconds.value) || 60,
+      from_number: formData.from_number,
+      transfert_call_number: formData.transfert_call_number
+    }       validationErrors.push(...rowErrors)
+        }
+      })
+      
+      if (validationErrors.length > 0) {
+        error.value = `Erreurs CSV:\n${validationErrors.slice(0, 5).join('\n')}${validationErrors.length > 5 ? `\n... et ${validationErrors.length - 5} autres` : ''}`
+        contacts.value = []
+        return
+      }
+      
+      contacts.value = validContacts
       if (contacts.value.length === 0) {
         error.value = 'Aucun contact valide trouvé dans le fichier CSV'
       } else {
@@ -743,9 +844,7 @@ const handleSubmit = async () => {
     { key: 'promesse_de_valeur', label: 'Promesse de valeur' },
     { key: 'infos', label: 'Description entreprise / service' },
     { key: 'agent_name', label: "Nom de l'agent" },
-    { key: 'objectifs', label: 'Objectifs de Prospection' },
-    { key: 'country', label: 'Pays' },
-    { key: 'timezone', label: 'Fuseau horaire d\'appel' }
+    { key: 'objectifs', label: 'Objectifs de Prospection' }
   ]
 
   const missing = requiredChecks
@@ -787,14 +886,14 @@ const handleSubmit = async () => {
     // Prepare payload to send to server for validation + creation
     const payload = {
       user_id: user.id,
-      company_name: formData.company_name,
-      domain: formData.domain === 'Autre' ? formData.domain_custom : formData.domain,
-      promesse_de_valeur: formData.promesse_de_valeur,
+      company_name: sanitizeInput(formData.company_name),
+      domain: sanitizeInput(formData.domain === 'Autre' ? formData.domain_custom : formData.domain),
+      promesse_de_valeur: sanitizeInput(formData.promesse_de_valeur),
       confidence_threshold: formData.confidence_threshold || 0.7,
-      agent_name: formData.agent_name,
-      referral_name: formData.referral_name,
-      infos: formData.infos,
-      objectifs: formData.objectifs,
+      agent_name: sanitizeInput(formData.agent_name),
+      referral_name: sanitizeInput(formData.referral_name),
+      infos: sanitizeInput(formData.infos),
+      objectifs: sanitizeInput(formData.objectifs),
       contacts: contacts.value,
       contacts_count: contacts.value.length,
       estimated_avg_call_seconds: Number(estimatedAvgCallSeconds.value) || 60,

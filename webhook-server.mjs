@@ -16,6 +16,67 @@ import crypto from 'crypto';
 // capture raw body for webhook HMAC verification
 app.use(express.json({ verify: (req, _res, buf) => { req.rawBody = buf } }));
 
+// ============= SECURITY UTILITIES =============
+
+// Input sanitization
+function sanitizeInput(str) {
+  if (typeof str !== 'string') return str
+  return str.trim().slice(0, 500).replace(/[<>]/g, '')
+}
+
+// Webhook processing cache to prevent duplicates
+const processedWebhooks = new Map()
+const MAX_WEBHOOK_CACHE = 1000
+
+function isWebhookProcessed(callId) {
+  return processedWebhooks.has(callId)
+}
+
+function markWebhookProcessed(callId) {
+  processedWebhooks.set(callId, Date.now())
+  // Cleanup old entries
+  if (processedWebhooks.size > MAX_WEBHOOK_CACHE) {
+    const oldestEntry = Array.from(processedWebhooks.entries())
+      .sort((a, b) => a[1] - b[1])[0]
+    processedWebhooks.delete(oldestEntry[0])
+  }
+}
+
+// RATE LIMITING: Simple in-memory rate limiter by user_id
+// Tracks campaign creation requests to prevent abuse
+const rateLimit = new Map()
+const RATE_LIMIT_CONFIG = {
+  maxRequests: 5,        // Max 5 campaigns
+  windowMs: 60 * 1000    // Per minute (60,000 ms)
+}
+
+function checkRateLimit(userId) {
+  const now = Date.now()
+  const key = `campaign:${userId}`
+  
+  if (!rateLimit.has(key)) {
+    rateLimit.set(key, { count: 1, resetTime: now + RATE_LIMIT_CONFIG.windowMs })
+    return { allowed: true, remaining: RATE_LIMIT_CONFIG.maxRequests - 1, resetTime: rateLimit.get(key).resetTime }
+  }
+  
+  const record = rateLimit.get(key)
+  if (now > record.resetTime) {
+    // Window expired, reset
+    record.count = 1
+    record.resetTime = now + RATE_LIMIT_CONFIG.windowMs
+    return { allowed: true, remaining: RATE_LIMIT_CONFIG.maxRequests - 1, resetTime: record.resetTime }
+  }
+  
+  if (record.count >= RATE_LIMIT_CONFIG.maxRequests) {
+    return { allowed: false, remaining: 0, resetTime: record.resetTime }
+  }
+  
+  record.count++
+  return { allowed: true, remaining: RATE_LIMIT_CONFIG.maxRequests - record.count, resetTime: record.resetTime }
+}
+
+// ============= END SECURITY UTILITIES =============
+
 // --- Billing endpoints --------------------------------------------------
 // Get available plans
 app.get('/api/plans', async (_req, res) => {
@@ -687,12 +748,45 @@ app.post('/api/admin/app-settings', async (req, res) => {
 // Create campaign via server: checks billing/plan before inserting and enqueuing batch
 app.post('/api/create-campaign', async (req, res) => {
   try {
-    if (!supabase) return res.status(500).json({ error: 'Supabase not configured' })
     const payload = req.body || {}
-    const userId = payload.user_id || null
-    if (!userId) return res.status(400).json({ error: 'user_id required' })
+    const contactsCount = Array.isArray(payload.contacts) ? payload.contacts.length : 0
+    if (contactsCount === 0) return res.status(400).json({ error: 'No contacts provided' })
 
-    const contactsCount = Number(payload.contacts_count || (Array.isArray(payload.contacts) ? payload.contacts.length : 0))
+    // Extract user_id from Authorization header
+    const authHeader = req.headers.authorization || ''
+    const token = authHeader.replace('Bearer ', '')
+    if (!token) return res.status(401).json({ error: 'Unauthorized' })
+    
+    let userId = null
+    try {
+      const payload_token = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString())
+      userId = payload_token.sub || null
+    } catch (e) {
+      return res.status(401).json({ error: 'Invalid token' })
+    }
+    
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' })
+
+    // VALIDATION: Ensure Retell API key is configured
+    const retellApiKey = process.env.RETELL_API_KEY || process.env.VITE_RETELL_API_KEY
+    if (!retellApiKey) {
+      console.error('[create-campaign] RETELL_API_KEY not configured')
+      return res.status(500).json({ error: 'Retell API not configured on server' })
+    }
+
+    // RATE LIMITING: Check if user has exceeded campaign creation limit
+    const rateLimitResult = checkRateLimit(userId)
+    if (!rateLimitResult.allowed) {
+      const resetTime = new Date(rateLimitResult.resetTime).toISOString()
+      return res.status(429).json({ 
+        error: 'RATE_LIMIT_EXCEEDED',
+        message: `Limite de 5 campagnes par minute atteinte. Veuillez réessayer après ${resetTime}`,
+        reset_at: resetTime
+      })
+    }
+
+    if (!supabase) return res.status(500).json({ error: 'Supabase not configured' })
+
     const avgCallSec = Number(payload.estimated_avg_call_seconds || 60)
     const planSlug = payload.plan_slug || null
 
@@ -782,14 +876,14 @@ app.post('/api/create-campaign', async (req, res) => {
     // Otherwise, allowed. Insert campaign and forward to create-batch (enqueue)
     const campaignRow = {
       user_id: userId,
-      company_name: payload.company_name || null,
-      domain: payload.domain || null,
-      value_proposition: payload.promesse_de_valeur || null,
+      company_name: sanitizeInput(payload.company_name) || null,
+      domain: sanitizeInput(payload.domain) || null,
+      value_proposition: sanitizeInput(payload.promesse_de_valeur) || null,
       confidence_threshold: payload.confidence_threshold || 0.7,
-      agent_name: payload.agent_name || 'Agent',
-      referral_name: payload.referral_name || null,
-      infos: payload.infos || null,
-      objectifs: payload.objectifs || null,
+      agent_name: sanitizeInput(payload.agent_name) || 'Agent',
+      referral_name: sanitizeInput(payload.referral_name) || null,
+      infos: sanitizeInput(payload.infos) || null,
+      objectifs: sanitizeInput(payload.objectifs) || null,
       contacts_count: contactsCount,
       status: 'pending',
       created_at: new Date().toISOString()
@@ -927,10 +1021,26 @@ app.get('/api/user-plan', async (req, res) => {
 app.get('/api/admin/call-webhooks', async (req, res) => {
   if (!supabase) return res.status(500).json({ error: 'Supabase not configured' })
   try {
+    // SECURITY FIX: Filter by authenticated user_id to prevent data leakage
+    const authHeader = req.headers.authorization || ''
+    const token = authHeader.replace('Bearer ', '')
+    if (!token) return res.status(401).json({ error: 'Unauthorized' })
+    
+    // Decode JWT to get user_id (Supabase JWT format)
+    let userId = null
+    try {
+      const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString())
+      userId = payload.sub || null
+    } catch (e) {
+      return res.status(401).json({ error: 'Invalid token' })
+    }
+    
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' })
+    
     const q = req.query.q || null
-    let query = supabase.from('call_webhooks').select('*').order('created_at', { ascending: false }).limit(200)
+    let query = supabase.from('call_webhooks').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(200)
     if (q) {
-      query = supabase.from('call_webhooks').select('*').or(`call_id.ilike.%${q}%,to_number.ilike.%${q}%`).order('created_at', { ascending: false }).limit(200)
+      query = supabase.from('call_webhooks').select('*').eq('user_id', userId).or(`call_id.ilike.%${q}%,to_number.ilike.%${q}%`).order('created_at', { ascending: false }).limit(200)
     }
     const { data, error } = await query
     if (error) return res.status(500).json({ error })
@@ -944,16 +1054,30 @@ app.get('/api/admin/call-webhooks', async (req, res) => {
 app.post('/api/admin/link-payload', async (req, res) => {
   if (!supabase) return res.status(500).json({ error: 'Supabase not configured' })
   try {
+    // SECURITY FIX: Verify user owns the webhook record
+    const authHeader = req.headers.authorization || ''
+    const token = authHeader.replace('Bearer ', '')
+    if (!token) return res.status(401).json({ error: 'Unauthorized' })
+    
+    let userId = null
+    try {
+      const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString())
+      userId = payload.sub || null
+    } catch (e) {
+      return res.status(401).json({ error: 'Invalid token' })
+    }
+    
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' })
+    
     const { id, campaign_id } = req.body || {}
     if (!id) return res.status(400).json({ error: 'id required' })
 
-    const { data: row, error: fetchErr } = await supabase.from('call_webhooks').select('*').eq('id', id).limit(1).single()
+    const { data: row, error: fetchErr } = await supabase.from('call_webhooks').select('*').eq('id', id).eq('user_id', userId).limit(1).single()
     if (fetchErr || !row) return res.status(404).json({ error: 'not found' })
 
     // If campaign_id provided, set it and attempt to re-process via saveCallResults
     if (campaign_id) {
-      // update the row with campaign_id and then try to process
-      await supabase.from('call_webhooks').update({ campaign_id }).eq('id', id)
+      await supabase.from('call_webhooks').update({ campaign_id }).eq('id', id).eq('user_id', userId)
     }
 
     // Attempt to re-run saveCallResults using the stored raw_payload if present
@@ -977,10 +1101,25 @@ app.post('/api/paypal/capture', async (req, res) => {
   try {
     const { orderID, user_id, plan_slug } = req.body || {};
     if (!orderID) return res.status(400).json({ error: 'orderID required' });
+    
+    // Define non-retryable PayPal errors that indicate permanent failures
+    const NON_RETRYABLE_ERRORS = [
+      'ORDER_ALREADY_CAPTURED',     // Order was already captured
+      'PERMISSION_DENIED',           // Insufficient permissions
+      'INVALID_REQUEST',             // Invalid request format
+      'MALFORMED_REQUEST_BODY',      // Bad request structure
+      'INVALID_PARAMETER_VALUE',     // Invalid field value
+      'INSTRUMENT_DECLINED',         // Card/instrument declined
+      'PAYER_CANNOT_PAY',           // Payer account issue
+      'BUYER_ACCOUNT_LOCKED'        // Account restrictions
+    ];
+    
     // Attempt capture with short retry/backoff for transient errors
     let lastErr = null
     let capture = null
     const maxAttempts = 3
+    let retryCount = 0
+    
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         capture = await capturePayPalOrder(orderID)
@@ -988,28 +1127,56 @@ app.post('/api/paypal/capture', async (req, res) => {
         break
       } catch (e) {
         lastErr = e
-        // If the error is ORDER_NOT_APPROVED, stop retrying and return approval link
+        const errMsg = e?.response?.data?.name || e?.response?.data?.message || e?.message || ''
         const details = e?.response?.data?.details || []
-        const hasNotApproved = Array.isArray(details) && details.some(d => d.issue === 'ORDER_NOT_APPROVED')
-        if (hasNotApproved) {
-          // fetch order to extract approval link
+        const issue = details?.[0]?.issue || ''
+        const debugId = e?.response?.data?.debug_id || null
+        
+        // Check for ORDER_NOT_APPROVED - specific error requiring user action
+        if (issue === 'ORDER_NOT_APPROVED') {
           try {
             const order = await getPayPalOrder(orderID)
             const link = (order?.links || []).find(l => l.rel === 'approve')
-            console.warn('PayPal capture attempted before approval', { orderID, debug_id: e?.response?.data?.debug_id })
-            return res.status(409).json({ error: 'ORDER_NOT_APPROVED', approval_link: link ? link.href : null, debug_id: e?.response?.data?.debug_id || null })
+            console.warn('PayPal capture attempted before approval', { orderID, debug_id: debugId })
+            return res.status(409).json({ error: 'ORDER_NOT_APPROVED', approval_link: link ? link.href : null, debug_id: debugId })
           } catch (fetchErr) {
             console.warn('Failed to fetch PayPal order for approval link', fetchErr)
-            return res.status(409).json({ error: 'ORDER_NOT_APPROVED', approval_link: null, debug_id: e?.response?.data?.debug_id || null })
+            return res.status(409).json({ error: 'ORDER_NOT_APPROVED', approval_link: null, debug_id: debugId })
           }
         }
-
-        // For other errors, wait and retry (exponential backoff)
-        if (attempt < maxAttempts) await new Promise(r => setTimeout(r, 500 * attempt))
+        
+        // Check if error is non-retryable - stop immediately to prevent duplicate charges
+        if (NON_RETRYABLE_ERRORS.some(err => errMsg.includes(err) || issue.includes(err))) {
+          console.error('Non-retryable PayPal error (stopping immediately):', { 
+            orderID, 
+            issue, 
+            errMsg, 
+            debug_id: debugId,
+            attempt 
+          })
+          return res.status(e?.response?.status || 400).json({ 
+            error: 'PAYMENT_FAILED', 
+            reason: issue || errMsg, 
+            debug_id: debugId 
+          })
+        }
+        
+        // For transient errors (timeout, rate limit, etc), retry with exponential backoff
+        if (attempt < maxAttempts) {
+          retryCount++
+          const waitMs = 500 * attempt
+          console.log(`PayPal capture transient error, retrying in ${waitMs}ms (attempt ${attempt}/${maxAttempts}):`, { orderID, issue, debug_id: debugId })
+          await new Promise(r => setTimeout(r, waitMs))
+        }
       }
     }
+    
     if (lastErr && !capture) {
-      console.error('Failed to capture PayPal order after retries:', lastErr?.response?.data || lastErr?.message || lastErr)
+      console.error('Failed to capture PayPal order after retries:', { 
+        orderID, 
+        retries: retryCount,
+        error: lastErr?.response?.data || lastErr?.message || lastErr 
+      })
       const status = lastErr?.response?.status || 500
       return res.status(status).json({ error: lastErr?.response?.data || lastErr?.message || 'capture_failed' })
     }
@@ -1398,6 +1565,43 @@ app.post("/webhook", async (req, res) => {
       return
     }
     console.log(`WEBHOOK RECEIVED: event=${event} call_id=${call?.call_id || 'n/a'} ip=${remoteIp} ts=${new Date().toISOString()}`);
+
+    // IDEMPOTENCY FIX: Check both in-memory cache and database to prevent duplicate processing
+    const callId = call?.call_id
+    if (callId) {
+      // First check memory cache (fast path)
+      if (isWebhookProcessed(callId)) {
+        console.log(`Webhook already processed (memory cache): call_id=${callId}`)
+        return
+      }
+      
+      // Then check database for persistence across server restarts
+      if (supabase) {
+        try {
+          const { data: existing, error: dbErr } = await supabase
+            .from('call_webhooks')
+            .select('id')
+            .eq('call_id', callId)
+            .eq('event_type', event)
+            .limit(1)
+            .single()
+          
+          if (!dbErr && existing) {
+            console.log(`Webhook already processed (database): call_id=${callId}`)
+            markWebhookProcessed(callId) // Add to memory cache
+            return
+          }
+        } catch (dbError) {
+          // If database check fails, continue with processing (fail-open)
+          console.warn('Database idempotency check failed:', dbError.message)
+        }
+      }
+    }
+
+    // If we reach here, mark as processed to prevent duplicate processing
+    if (callId) {
+      markWebhookProcessed(callId)
+    }
 
     // If a RETELL_WEBHOOK_SECRET is configured, verify HMAC signature (header: x-retell-signature or x-signature)
     const secret = process.env.RETELL_WEBHOOK_SECRET || null
