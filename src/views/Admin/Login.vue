@@ -1,24 +1,25 @@
 <template>
-  <div class="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center p-4">
-    <div class="w-full max-w-md">
+  <div style="min-height: 100vh; background: linear-gradient(to bottom right, #eff6ff, #dbeafe); display: flex; align-items: center; justify-content: center; padding: 1rem;">
+    <div style="width: 100%; max-width: 28rem;">
       <!-- Logo / Header -->
-      <div class="text-center mb-8">
-        <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-600 text-white rounded-full mb-4">
-          <i class="pi pi-shield text-2xl"></i>
+      <div style="text-align: center; margin-bottom: 2rem;">
+        <div style="display: inline-flex; align-items: center; justify-content: center; width: 4rem; height: 4rem; background-color: #2563eb; color: white; border-radius: 50%; margin-bottom: 1rem;">
+          <i class="pi pi-shield" style="font-size: 1.5rem;"></i>
         </div>
-        <h1 class="text-3xl font-bold text-gray-900">Administration</h1>
-        <p class="text-gray-600 mt-2">Connexion sécurisée</p>
+        <h1 style="font-size: 1.875rem; font-weight: 700; color: #111827;">Administration</h1>
+        <p style="color: #4b5563; margin-top: 0.5rem;">Connexion sécurisée</p>
       </div>
 
       <!-- Main Card -->
-      <Card class="shadow-xl border-0" :pt="{ content: { class: 'p-6 sm:p-8' } }">
+      <div style="background: white; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); border: none; padding: 1.5rem;">
         <!-- Error Message -->
-        <Message v-if="error" severity="error" :closable="true" @close="error = null" class="mb-6">
+        <div v-if="error" style="background: #fee2e2; border: 1px solid #fecaca; border-radius: 0.5rem; padding: 1rem; margin-bottom: 1.5rem; color: #991b1b;">
           <div>
             <strong>Erreur de connexion</strong>
-            <p class="mt-2 text-sm">{{ error }}</p>
+            <p style="margin-top: 0.5rem; font-size: 0.875rem;">{{ error }}</p>
           </div>
-        </Message>
+          <button @click="error = null" style="position: absolute; top: 1rem; right: 1rem; background: none; border: none; cursor: pointer; font-size: 1.25rem;">×</button>
+        </div>
 
         <!-- Login Form -->
         <form @submit.prevent="submit" style="margin-bottom: 1.5rem;">
@@ -35,7 +36,6 @@
               :disabled="isLoading"
               required
               autocomplete="email"
-              style="width: 100%; padding: 0.75rem 1rem; border: 1px solid #d1d5db; border-radius: 0.5rem; background-color: #ffffff; color: #111827; font-size: 1rem;"
             />
           </div>
 
@@ -52,49 +52,52 @@
               :disabled="isLoading"
               required
               autocomplete="current-password"
-              style="width: 100%; padding: 0.75rem 1rem; border: 1px solid #d1d5db; border-radius: 0.5rem; background-color: #ffffff; color: #111827; font-size: 1rem;"
             />
           </div>
 
           <button 
             type="submit" 
             :disabled="isLoading || !email || !password"
-            style="width: 100%; padding: 0.5rem 1rem; background-color: #2563eb; color: white; font-weight: 600; border-radius: 0.5rem; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem; transition: all 0.2s;"
+            style="width: 100%; padding: 0.5rem 1rem; background-color: #2563eb; color: white; font-weight: 600; border-radius: 0.5rem; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem; transition: all 0.2s; font-size: 1rem;"
+            @mouseover="!isLoading && !(!email || !password) && (event.target.style.backgroundColor = '#1d4ed8')"
+            @mouseout="!isLoading && !(!email || !password) && (event.target.style.backgroundColor = '#2563eb')"
           >
-            <ProgressSpinner v-if="isLoading" style="width:20px; height:20px" />
-            <span v-else><i class="pi pi-sign-in" style="margin-right: 0.25rem;"></i>Connexion</span>
+            <span v-if="!isLoading"><i class="pi pi-sign-in" style="margin-right: 0.25rem;"></i>Connexion</span>
+            <span v-else style="color: #3b82f6;">●●●</span>
           </button>
         </form>
 
         <!-- Divider -->
-        <Divider />
+        <div style="border-top: 1px solid #e5e7eb; margin: 1.5rem 0;"></div>
 
         <!-- Initialization Section -->
-        <div class="mt-6">
-          <h3 class="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-            <i class="pi pi-info-circle text-blue-600"></i>Première Utilisation
+        <div style="margin-top: 1.5rem;">
+          <h3 style="font-weight: 600; color: #111827; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+            <i class="pi pi-info-circle" style="color: #2563eb;"></i>Première Utilisation
           </h3>
-          <p class="text-sm text-gray-600 mb-4">
+          <p style="font-size: 0.875rem; color: #4b5563; margin-bottom: 1rem;">
             Si l'administration n'est pas encore configurée, utilisez le bouton ci-dessous pour créer les identifiants administrateur initiaux.
           </p>
           <button 
             @click="initIfNeeded" 
             :disabled="isLoading"
             type="button"
-            class="w-full px-4 py-2 border-2 border-blue-600 text-blue-600 font-semibold rounded-lg hover:bg-blue-50 transition disabled:opacity-50 flex items-center justify-center gap-2"
+            style="width: 100%; padding: 0.5rem 1rem; border: 2px solid #2563eb; color: #2563eb; font-weight: 600; border-radius: 0.5rem; background: white; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem; transition: all 0.2s; font-size: 1rem;"
+            @mouseover="!isLoading && (event.target.style.backgroundColor = '#f0f9ff')"
+            @mouseout="!isLoading && (event.target.style.backgroundColor = 'white')"
           >
-            <ProgressSpinner v-if="isLoading" style="width:20px; height:20px" :pt="{ svg: { class: 'w-5 h-5' } }" />
-            <span v-else><i class="pi pi-plus mr-1"></i>Initialiser Admin</span>
+            <span v-if="!isLoading"><i class="pi pi-plus" style="margin-right: 0.25rem;"></i>Initialiser Admin</span>
+            <span v-else style="color: #2563eb;">●●●</span>
           </button>
-          <p class="text-xs text-gray-500 mt-3 text-center">
+          <p style="font-size: 0.75rem; color: #9ca3af; margin-top: 0.75rem; text-align: center;">
             Cela créera un compte avec les identifiants saisis ci-dessus si aucun compte admin n'existe.
           </p>
         </div>
-      </Card>
+      </div>
 
       <!-- Footer Info -->
-      <div class="mt-8 text-center text-xs text-gray-600">
-        <i class="pi pi-lock text-green-600 mr-1"></i>
+      <div style="margin-top: 2rem; text-align: center; font-size: 0.75rem; color: #4b5563;">
+        <i class="pi pi-lock" style="color: #16a34a; margin-right: 0.25rem;"></i>
         Connexion sécurisée — Vos identifiants ne sont jamais stockés
       </div>
     </div>
@@ -103,14 +106,10 @@
 
 <script>
 import axios from 'axios'
-import Card from 'primevue/card'
-import Message from 'primevue/message'
-import Divider from 'primevue/divider'
-import ProgressSpinner from 'primevue/progressspinner'
 
 export default {
   name: 'AdminLogin',
-  components: { Card, Message, Divider, ProgressSpinner },
+  components: {},
   data() { 
     return { 
       email: '', 
@@ -255,20 +254,5 @@ export default {
 </script>
 
 <style scoped>
-/* Removed complex scoped styles - using inline styles instead for better control */
-:deep(.p-card) {
-  border-radius: 12px;
-  position: relative;
-  z-index: 10;
-}
-
-:deep(.p-card-content) {
-  position: relative;
-  z-index: 10;
-}
-
-:deep(.p-message) {
-  display: block !important;
-  opacity: 1 !important;
-}
+/* Using inline styles in template instead of scoped CSS for better control */
 </style>
