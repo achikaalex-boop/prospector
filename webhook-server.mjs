@@ -50,6 +50,69 @@ const RATE_LIMIT_CONFIG = {
   windowMs: 60 * 1000    // Per minute (60,000 ms)
 }
 
+// Admin login attempt rate limiting (prevent brute force)
+const adminLoginAttempts = new Map()
+const ADMIN_LOGIN_RATE_LIMIT = {
+  maxAttempts: 5,        // Max 5 attempts
+  windowMs: 15 * 60 * 1000  // Per 15 minutes (900,000 ms)
+}
+
+function checkAdminLoginAttempt(ip) {
+  const now = Date.now()
+  const key = `admin-login:${ip}`
+  
+  if (!adminLoginAttempts.has(key)) {
+    adminLoginAttempts.set(key, { count: 1, resetTime: now + ADMIN_LOGIN_RATE_LIMIT.windowMs })
+    return { allowed: true, remaining: ADMIN_LOGIN_RATE_LIMIT.maxAttempts - 1 }
+  }
+  
+  const record = adminLoginAttempts.get(key)
+  if (now > record.resetTime) {
+    record.count = 1
+    record.resetTime = now + ADMIN_LOGIN_RATE_LIMIT.windowMs
+    return { allowed: true, remaining: ADMIN_LOGIN_RATE_LIMIT.maxAttempts - 1 }
+  }
+  
+  if (record.count >= ADMIN_LOGIN_RATE_LIMIT.maxAttempts) {
+    return { allowed: false, remaining: 0, resetTime: record.resetTime }
+  }
+  
+  record.count++
+  return { allowed: true, remaining: ADMIN_LOGIN_RATE_LIMIT.maxAttempts - record.count }
+}
+
+// Admin token storage with expiration (in-memory)
+const adminSessions = new Map()
+const ADMIN_TOKEN_EXPIRY_MS = 24 * 60 * 60 * 1000 // 24 hours
+
+function validateAdminToken(token) {
+  if (!token) return false
+  const session = adminSessions.get(token)
+  if (!session) return false
+  if (Date.now() > session.expiresAt) {
+    adminSessions.delete(token)
+    return false
+  }
+  // Update last activity
+  session.lastActivity = Date.now()
+  return true
+}
+
+function createAdminSession(token) {
+  const session = {
+    token,
+    createdAt: Date.now(),
+    expiresAt: Date.now() + ADMIN_TOKEN_EXPIRY_MS,
+    lastActivity: Date.now()
+  }
+  adminSessions.set(token, session)
+  return session
+}
+
+function revokeAdminSession(token) {
+  adminSessions.delete(token)
+}
+
 function checkRateLimit(userId) {
   const now = Date.now()
   const key = `campaign:${userId}`
@@ -642,18 +705,44 @@ app.get('/api/user/dedicated-numbers', async (req, res) => {
 app.post('/api/admin/login', async (req, res) => {
   try {
     if (!supabase) return res.status(500).json({ error: 'Supabase not configured' })
+    
+    // Rate limiting by IP
+    const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress || 'unknown'
+    const limitCheck = checkAdminLoginAttempt(ip)
+    if (!limitCheck.allowed) {
+      console.warn(`[SECURITY] Admin login rate limit exceeded from IP: ${ip}`)
+      return res.status(429).json({ error: 'too_many_attempts', message: 'Trop de tentatives échouées. Veuillez réessayer après 15 minutes.' })
+    }
+    
     const { email, password } = req.body || {}
     if (!email || !password) return res.status(400).json({ error: 'email_and_password_required' })
+    
+    // Validate email format
+    if (!String(email).includes('@')) return res.status(400).json({ error: 'invalid_email' })
+    
     const storedEmail = await getAppSetting('admin_email')
     const storedHash = await getAppSetting('admin_password_hash')
     if (!storedEmail) return res.status(400).json({ error: 'admin_not_configured' })
     if (!storedHash || String(storedHash).trim() === '') return res.status(400).json({ error: 'admin_not_initialized' })
-    if (String(email).toLowerCase() !== String(storedEmail).toLowerCase()) return res.status(403).json({ error: 'invalid_credentials' })
-    if (!verifyPasswordSync(password, storedHash)) return res.status(403).json({ error: 'invalid_credentials' })
-    // success: generate token and store in app_settings
+    
+    // Case-insensitive email comparison
+    if (String(email).toLowerCase() !== String(storedEmail).toLowerCase()) {
+      console.warn(`[SECURITY] Admin login failed - invalid email from IP: ${ip}`)
+      return res.status(403).json({ error: 'invalid_credentials' })
+    }
+    
+    if (!verifyPasswordSync(password, storedHash)) {
+      console.warn(`[SECURITY] Admin login failed - invalid password from IP: ${ip}`)
+      return res.status(403).json({ error: 'invalid_credentials' })
+    }
+    
+    // success: generate token and create session
     const token = crypto.randomBytes(32).toString('hex')
-    const { data, error } = await supabase.from('app_settings').upsert([{ key: 'admin_token', value: token }], { onConflict: ['key'] })
-    if (error) return res.status(500).json({ error })
+    createAdminSession(token)
+    
+    // Log successful admin login
+    console.log(`[SECURITY] Admin login successful from IP: ${ip}`)
+    
     return res.json({ ok: true, token })
   } catch (e) {
     console.error('Error in /api/admin/login:', e)
@@ -666,9 +755,50 @@ app.get('/api/admin/status', async (_req, res) => {
   try {
     const email = await getAppSetting('admin_email')
     const hash = await getAppSetting('admin_password_hash')
-    return res.json({ initialized: !!(hash && String(hash).trim() !== ''), admin_email: email || null })
+    return res.json({ 
+      initialized: !!(hash && String(hash).trim() !== ''), 
+      admin_email: email || null 
+    })
   } catch (e) {
     console.error('Error in /api/admin/status:', e)
+    return res.status(500).json({ error: 'internal' })
+  }
+})
+
+// Admin: Get plans count
+app.get('/api/admin/plans-count', async (_req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('plans')
+      .select('id', { count: 'exact', head: true })
+    
+    if (error) {
+      console.error('Error fetching plans count:', error)
+      return res.status(500).json({ error: 'internal' })
+    }
+    
+    return res.json({ count: data?.length || 0 })
+  } catch (e) {
+    console.error('Error in /api/admin/plans-count:', e)
+    return res.status(500).json({ error: 'internal' })
+  }
+})
+
+// Admin: Revoke current session (logout)
+app.post('/api/admin/revoke-session', async (req, res) => {
+  try {
+    const token = req.headers['x-admin-token'] || null
+    if (!token) return res.status(401).json({ error: 'unauthorized' })
+    
+    if (!validateAdminToken(token)) {
+      return res.status(401).json({ error: 'invalid_or_expired_token' })
+    }
+    
+    revokeAdminSession(token)
+    console.log('[SECURITY] Admin session revoked')
+    return res.json({ ok: true })
+  } catch (e) {
+    console.error('Error in /api/admin/revoke-session:', e)
     return res.status(500).json({ error: 'internal' })
   }
 })

@@ -45,27 +45,36 @@ const routes = [
     path: '/pricing',
     name: 'Pricing',
     component: () => import(/* webpackChunkName: "pages" */ '../views/Pricing.vue')
-  }
-  ,
+  },
   {
     path: '/admin',
     name: 'AdminLogin',
     component: () => import('../views/Admin/Login.vue')
   },
   {
-    path: '/admin/calls-audit',
-    name: 'AdminCallsAudit',
-    component: () => import('../views/Admin/CallsAudit.vue'),
+    path: '/admin/dashboard',
+    name: 'AdminDashboard',
+    component: () => import('../views/Admin/Dashboard.vue'),
     meta: { adminOnly: true }
-  }
-  ,
+  },
   {
     path: '/admin/plans',
     name: 'AdminPlans',
     component: () => import('../views/Admin/Plans.vue'),
     meta: { adminOnly: true }
-  }
-  ,
+  },
+  {
+    path: '/admin/calls-audit',
+    name: 'AdminCallsAudit',
+    component: () => import('../views/Admin/CallsAudit.vue'),
+    meta: { adminOnly: true }
+  },
+  {
+    path: '/admin/security',
+    name: 'AdminSecurity',
+    component: () => import('../views/Admin/Security.vue'),
+    meta: { adminOnly: true }
+  },
   {
     path: '/topup/complete',
     name: 'TopUpComplete',
@@ -78,15 +87,34 @@ const router = createRouter({
   routes
 })
 
+// Admin token validation function
+const isAdminTokenValid = () => {
+  const token = localStorage.getItem('admin_token')
+  return !!token && typeof token === 'string' && token.length > 16
+}
+
 router.beforeEach(async (to, from, next) => {
   try {
     const { data: { session } } = await supabase.auth.getSession()
+    
+    // Admin-only routes protection
+    if (to.meta && to.meta.adminOnly) {
+      // Must have valid admin token
+      if (!isAdminTokenValid()) {
+        // Redirect to admin login instead of regular login
+        next({ name: 'AdminLogin', query: { redirect: to.fullPath } })
+        return
+      }
+    }
     
     // Protected routes that require a logged-in user (not admin-only routes)
     if (to.meta && to.meta.requiresAuth && !session) {
       next('/login')
     } else if ((to.path === '/login' || to.path === '/register') && session) {
       next('/')
+    } else if (to.path === '/admin' && isAdminTokenValid()) {
+      // If already logged in as admin, redirect to dashboard
+      next({ name: 'AdminDashboard' })
     } else {
       next()
     }
@@ -95,6 +123,8 @@ router.beforeEach(async (to, from, next) => {
     console.error('Erreur Supabase:', error)
     if (to.meta && to.meta.requiresAuth) {
       next('/login')
+    } else if (to.meta && to.meta.adminOnly) {
+      next({ name: 'AdminLogin' })
     } else {
       next()
     }
@@ -102,4 +132,3 @@ router.beforeEach(async (to, from, next) => {
 })
 
 export default router
-

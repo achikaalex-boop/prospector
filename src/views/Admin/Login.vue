@@ -1,80 +1,267 @@
 <template>
-  <div class="p-6 max-w-md mx-auto">
-    <h1 class="text-2xl font-bold mb-4">Admin — Connexion</h1>
-    <div class="bg-white p-4 rounded shadow">
-      <label class="text-xs">Email</label>
-      <input v-model="email" class="w-full p-2 border rounded mb-2" placeholder="admin@example.com" />
-      <label class="text-xs">Mot de passe</label>
-      <input v-model="password" type="password" class="w-full p-2 border rounded mb-4" />
-      <div class="flex gap-2">
-        <button @click="submit" :disabled="isLoading" class="bg-blue-600 text-white px-4 py-2 rounded">Connexion</button>
-        <button @click="initIfNeeded" :disabled="isLoading" class="px-4 py-2 border rounded">Initialiser (si non configuré)</button>
+  <div class="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center p-4">
+    <div class="w-full max-w-md">
+      <!-- Logo / Header -->
+      <div class="text-center mb-8">
+        <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-600 text-white rounded-full mb-4">
+          <i class="pi pi-shield text-2xl"></i>
+        </div>
+        <h1 class="text-3xl font-bold text-gray-900">Administration</h1>
+        <p class="text-gray-600 mt-2">Connexion sécurisée</p>
       </div>
-      <p v-if="error" class="text-red-600 mt-3">{{ error }}</p>
-      <p class="text-xs text-gray-500 mt-3">Si l'admin n'est pas initialisé, utilisez le bouton 'Initialiser' pour créer les identifiants.</p>
+
+      <!-- Main Card -->
+      <Card class="shadow-xl border-0" :pt="{ content: { class: 'p-6 sm:p-8' } }">
+        <!-- Error Message -->
+        <Message v-if="error" severity="error" :closable="true" @close="error = null" class="mb-6">
+          <div>
+            <strong>Erreur de connexion</strong>
+            <p class="mt-2 text-sm">{{ error }}</p>
+          </div>
+        </Message>
+
+        <!-- Login Form -->
+        <form @submit.prevent="submit" class="space-y-4 mb-6">
+          <div>
+            <label for="email" class="block text-sm font-semibold text-gray-700 mb-2">
+              <i class="pi pi-envelope mr-1"></i>Email Administrateur
+            </label>
+            <InputText 
+              id="email"
+              v-model="email" 
+              type="email"
+              placeholder="admin@example.com"
+              class="w-full"
+              :disabled="isLoading"
+              required
+              autocomplete="email"
+            />
+          </div>
+
+          <div>
+            <label for="password" class="block text-sm font-semibold text-gray-700 mb-2">
+              <i class="pi pi-lock mr-1"></i>Mot de Passe
+            </label>
+            <Password 
+              id="password"
+              v-model="password" 
+              placeholder="••••••••"
+              class="w-full"
+              input-class="w-full"
+              toggle-mask
+              :disabled="isLoading"
+              required
+              autocomplete="current-password"
+            />
+          </div>
+
+          <button 
+            type="submit" 
+            :disabled="isLoading || !email || !password"
+            class="w-full px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            <ProgressSpinner v-if="isLoading" style="width:20px; height:20px" />
+            <span v-else><i class="pi pi-sign-in mr-1"></i>Connexion</span>
+          </button>
+        </form>
+
+        <!-- Divider -->
+        <Divider />
+
+        <!-- Initialization Section -->
+        <div class="mt-6">
+          <h3 class="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+            <i class="pi pi-info-circle text-blue-600"></i>Première Utilisation
+          </h3>
+          <p class="text-sm text-gray-600 mb-4">
+            Si l'administration n'est pas encore configurée, utilisez le bouton ci-dessous pour créer les identifiants administrateur initiaux.
+          </p>
+          <button 
+            @click="initIfNeeded" 
+            :disabled="isLoading"
+            type="button"
+            class="w-full px-4 py-2 border-2 border-blue-600 text-blue-600 font-semibold rounded-lg hover:bg-blue-50 transition disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            <ProgressSpinner v-if="isLoading" style="width:20px; height:20px" :pt="{ svg: { class: 'w-5 h-5' } }" />
+            <span v-else><i class="pi pi-plus mr-1"></i>Initialiser Admin</span>
+          </button>
+          <p class="text-xs text-gray-500 mt-3 text-center">
+            Cela créera un compte avec les identifiants saisis ci-dessus si aucun compte admin n'existe.
+          </p>
+        </div>
+      </Card>
+
+      <!-- Footer Info -->
+      <div class="mt-8 text-center text-xs text-gray-600">
+        <i class="pi pi-lock text-green-600 mr-1"></i>
+        Connexion sécurisée — Vos identifiants ne sont jamais stockés
+      </div>
     </div>
   </div>
 </template>
 
 <script>
 import axios from 'axios'
+import Card from 'primevue/card'
+import Message from 'primevue/message'
+import InputText from 'primevue/inputtext'
+import Password from 'primevue/password'
+import Divider from 'primevue/divider'
+import ProgressSpinner from 'primevue/progressspinner'
+
 export default {
   name: 'AdminLogin',
-  data() { return { email: '', password: '', isLoading: false, error: null } },
+  components: { Card, Message, InputText, Password, Divider, ProgressSpinner },
+  data() { 
+    return { 
+      email: '', 
+      password: '', 
+      isLoading: false, 
+      error: null 
+    } 
+  },
   methods: {
     async submit() {
+      if (!this.email || !this.password) {
+        this.error = 'Veuillez remplir tous les champs'
+        return
+      }
+
       try {
         this.isLoading = true
         this.error = null
-        const resp = await axios.post('/api/admin/login', { email: this.email, password: this.password })
+
+        const resp = await axios.post('/api/admin/login', { 
+          email: this.email.trim(), 
+          password: this.password 
+        })
+
         if (resp.data && resp.data.ok && resp.data.token) {
           const token = resp.data.token
           localStorage.setItem('admin_token', token)
           axios.defaults.headers.common['x-admin-token'] = token
-          this.$router.push({ name: 'AdminPlans' })
+          
+          this.$toast.add({ 
+            severity: 'success', 
+            summary: 'Connecté', 
+            detail: 'Bienvenue dans l\'administration', 
+            life: 3000 
+          })
+          
+          // Redirect after a short delay to show the success message
+          setTimeout(() => {
+            this.$router.push({ name: 'AdminDashboard' })
+          }, 1000)
         } else {
-          this.error = 'Échec de la connexion'
+          this.error = resp.data?.error || 'Échec de la connexion'
         }
       } catch (e) {
-        this.error = e?.response?.data?.error || e.message || String(e)
-      } finally { this.isLoading = false }
+        this.error = e?.response?.data?.error || e.message || 'Erreur serveur'
+        console.error('Login error:', e)
+      } finally { 
+        this.isLoading = false 
+      }
     },
+
     async initIfNeeded() {
+      if (!this.email || !this.password) {
+        this.error = 'Veuillez d\'abord saisir un email et un mot de passe'
+        return
+      }
+
       try {
         this.isLoading = true
         this.error = null
-        console.log('Attempting to initialize admin credentials')
-        // Try to initialize admin credentials if none exist
-        const resp = await axios.post('/api/admin/set-admin-credentials', { email: this.email || 'admin@localhost', password: this.password || 'admin' })
-        if (resp.data && resp.data.ok) {
-          this.$toast.add({ severity: 'success', summary: 'Initialisé', detail: 'Identifiants administrateur créés', life: 4000 })
-          // Auto-login after initialization
-          try {
-            const login = await axios.post('/api/admin/login', { email: this.email || 'admin@localhost', password: this.password || 'admin' })
-            if (login.data && login.data.ok && login.data.token) {
-              const token = login.data.token
-              localStorage.setItem('admin_token', token)
-              axios.defaults.headers.common['x-admin-token'] = token
-              this.$router.push({ name: 'AdminPlans' })
-            } else {
-              // No token returned; inform user to login manually
-              this.$toast.add({ severity: 'info', summary: 'Initialisé', detail: 'Identifiants créés. Connectez-vous manuellement.', life: 5000 })
-            }
-          } catch (le) {
-            console.error('Auto-login failed', le)
-            this.$toast.add({ severity: 'info', summary: 'Initialisé', detail: 'Identifiants créés mais auto-login impossible. Connectez-vous manuellement.', life: 6000 })
-            this.error = le?.response?.data?.error || le.message || String(le)
-          }
+
+        // Step 1: Initialize admin credentials
+        const initResp = await axios.post('/api/admin/set-admin-credentials', { 
+          email: this.email.trim(), 
+          password: this.password 
+        })
+
+        if (!initResp.data || !initResp.data.ok) {
+          this.error = initResp.data?.error || 'Impossible d\'initialiser'
+          console.warn('set-admin-credentials returned unexpected response', initResp)
+          return
+        }
+
+        this.$toast.add({ 
+          severity: 'success', 
+          summary: 'Initialisé', 
+          detail: 'Compte administrateur créé avec succès', 
+          life: 4000 
+        })
+
+        // Step 2: Auto-login with the new credentials
+        await this.loginAfterInit()
+      } catch (e) {
+        console.error('initIfNeeded error:', e)
+        this.error = e?.response?.data?.error || e.message || 'Erreur lors de l\'initialisation'
+        this.$toast.add({ 
+          severity: 'error', 
+          summary: 'Erreur', 
+          detail: this.error, 
+          life: 6000 
+        })
+      } finally { 
+        this.isLoading = false 
+      }
+    },
+
+    async loginAfterInit() {
+      try {
+        this.isLoading = true
+        const loginResp = await axios.post('/api/admin/login', { 
+          email: this.email.trim(), 
+          password: this.password 
+        })
+
+        if (loginResp.data && loginResp.data.ok && loginResp.data.token) {
+          const token = loginResp.data.token
+          localStorage.setItem('admin_token', token)
+          axios.defaults.headers.common['x-admin-token'] = token
+          
+          this.$toast.add({ 
+            severity: 'success', 
+            summary: 'Connecté', 
+            detail: 'Administration initialisée et activée', 
+            life: 3000 
+          })
+          
+          setTimeout(() => {
+            this.$router.push({ name: 'AdminDashboard' })
+          }, 1000)
         } else {
-          this.error = 'Impossible d\'initialiser'
-          console.warn('set-admin-credentials returned unexpected response', resp)
+          this.$toast.add({ 
+            severity: 'warn', 
+            summary: 'Initialisé', 
+            detail: 'Compte créé. Connectez-vous manuellement avec vos identifiants.', 
+            life: 5000 
+          })
         }
       } catch (e) {
-        console.error('initIfNeeded error', e)
-        this.error = e?.response?.data?.error || e.message || String(e)
-        this.$toast.add({ severity: 'error', summary: 'Erreur', detail: this.error, life: 6000 })
-      } finally { this.isLoading = false }
+        console.error('Auto-login failed:', e)
+        this.$toast.add({ 
+          severity: 'info', 
+          summary: 'Initialisé', 
+          detail: 'Compte créé. Connectez-vous manuellement avec vos identifiants.', 
+          life: 6000 
+        })
+      } finally {
+        this.isLoading = false
+      }
     }
   }
 }
 </script>
+
+<style scoped>
+:deep(.p-inputtext),
+:deep(.p-password-input) {
+  @apply px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent;
+}
+
+:deep(.p-card) {
+  border-radius: 12px;
+}
+</style>
