@@ -1631,9 +1631,12 @@ app.post("/webhook", async (req, res) => {
         break;
       case "call_ended":
         console.log("Call ended event received", call?.call_id);
+        // Save call results when call ends (before analysis)
+        await saveCallResults(call);
         break;
       case "call_analyzed":
         console.log("Call analyzed event received", call?.call_id);
+        // Update with analysis results when they become available
         await saveCallResults(call);
         break;
       default:

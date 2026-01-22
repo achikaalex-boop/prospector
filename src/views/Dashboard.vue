@@ -335,6 +335,7 @@ const selectedResult = ref(null)
 const showRawJson = ref(true)
 const conversation = ref([])
 const hasTranscriptionError = ref(false)
+let pollInterval = null
 
 const loadCampaigns = async () => {
   try {
@@ -512,6 +513,11 @@ onMounted(() => {
   loadUserPlan()
   window.addEventListener('plan:updated', loadUserPlan)
   
+  // Set up polling to refresh campaign statuses every 5 seconds
+  pollInterval = setInterval(() => {
+    loadCampaigns()
+  }, 5000)
+  
   // Listener pour les changements de taille d'écran
   const handleResize = () => {
     viewMode.value = window.innerWidth < 768 ? 'list' : 'grid'
@@ -525,6 +531,11 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('plan:updated', loadUserPlan)
+  // Clean up polling interval
+  if (pollInterval) {
+    clearInterval(pollInterval)
+    pollInterval = null
+  }
 })
 
 const prettyJson = (obj) => {
