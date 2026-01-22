@@ -1,27 +1,31 @@
 <template>
-  <div class="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+  <div style="min-height: 100vh; background: linear-gradient(to bottom right, #f3f4f6, #e5e7eb);">
     <!-- Header -->
-    <div class="bg-gradient-to-r from-blue-600 to-blue-800 text-white shadow-lg sticky top-0 z-40">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div style="background: linear-gradient(to right, #2563eb, #1e40af); color: white; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); position: sticky; top: 0; z-index: 40;">
+      <div style="max-width: 80rem; margin: 0 auto; padding: 1rem; display: flex; flex-direction: column; gap: 1rem;">
+        <div style="display: flex; flex-direction: column; gap: 1rem; flex-wrap: wrap;">
           <div>
-            <h1 class="text-2xl sm:text-3xl font-bold flex items-center gap-2">
+            <h1 style="font-size: 1.875rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
               <i class="pi pi-shield"></i>Centre d'Administration
             </h1>
-            <p class="text-blue-100 mt-1">Bienvenue, {{ adminEmail }}</p>
+            <p style="color: #bfdbfe; margin-top: 0.25rem;">Bienvenue, {{ adminEmail }}</p>
           </div>
-          <div class="flex gap-2 flex-wrap">
+          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
             <button 
               @click="toggleSessionInfo" 
-              class="px-4 py-2 bg-blue-500 hover:bg-blue-700 rounded-lg transition text-sm font-medium"
+              style="padding: 0.5rem 1rem; background-color: #3b82f6; color: white; border-radius: 0.5rem; border: none; cursor: pointer; transition: all 0.2s; font-size: 0.875rem; font-weight: 500; display: flex; align-items: center; gap: 0.5rem;"
+              @mouseover="event.target.style.backgroundColor = '#1d4ed8'"
+              @mouseout="event.target.style.backgroundColor = '#3b82f6'"
             >
-              <i class="pi pi-info-circle mr-2"></i>Infos Session
+              <i class="pi pi-info-circle"></i>Infos Session
             </button>
             <button 
               @click="logout" 
-              class="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition text-sm font-medium"
+              style="padding: 0.5rem 1rem; background-color: #dc2626; color: white; border-radius: 0.5rem; border: none; cursor: pointer; transition: all 0.2s; font-size: 0.875rem; font-weight: 500; display: flex; align-items: center; gap: 0.5rem;"
+              @mouseover="event.target.style.backgroundColor = '#991b1b'"
+              @mouseout="event.target.style.backgroundColor = '#dc2626'"
             >
-              <i class="pi pi-sign-out mr-2"></i>Déconnecter
+              <i class="pi pi-sign-out"></i>Déconnecter
             </button>
           </div>
         </div>
@@ -29,243 +33,235 @@
     </div>
 
     <!-- Session Info Panel -->
-    <div v-if="showSessionInfo" class="bg-blue-50 border-b border-blue-200">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+    <div v-if="showSessionInfo" style="background: #eff6ff; border-bottom: 1px solid #bfdbfe;">
+      <div style="max-width: 80rem; margin: 0 auto; padding: 1rem;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1rem; font-size: 0.875rem;">
           <div>
-            <p class="text-gray-600 font-semibold">Token Actif</p>
-            <p class="text-gray-900 font-mono text-xs break-all">{{ tokenPreview }}</p>
+            <p style="color: #495057; font-weight: 600;">Token Actif</p>
+            <p style="color: #111827; font-family: monospace; font-size: 0.75rem; word-break: break-all;">{{ tokenPreview }}</p>
           </div>
           <div>
-            <p class="text-gray-600 font-semibold">Durée de Vie</p>
-            <p class="text-gray-900">{{ sessionDuration }}</p>
+            <p style="color: #495057; font-weight: 600;">Durée de Vie</p>
+            <p style="color: #111827;">{{ sessionDuration }}</p>
           </div>
           <div>
-            <p class="text-gray-600 font-semibold">Dernier Accès</p>
-            <p class="text-gray-900">{{ formatDate(lastActivity) }}</p>
+            <p style="color: #495057; font-weight: 600;">Dernier Accès</p>
+            <p style="color: #111827;">{{ formatDate(lastActivity) }}</p>
           </div>
         </div>
         <button 
           @click="revokeSession"
-          class="mt-3 px-3 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600 transition font-medium"
+          style="padding: 0.25rem 0.75rem; background-color: #ef4444; color: white; font-size: 0.75rem; border-radius: 0.25rem; border: none; cursor: pointer; transition: all 0.2s; font-weight: 500; display: inline-flex; align-items: center; gap: 0.25rem;"
+          @mouseover="event.target.style.backgroundColor = '#991b1b'"
+          @mouseout="event.target.style.backgroundColor = '#ef4444'"
         >
-          <i class="pi pi-trash mr-1"></i>Révoquer Session
+          <i class="pi pi-trash"></i>Révoquer Session
         </button>
       </div>
     </div>
 
     <!-- Main Content -->
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <!-- Security Alert -->
-      <Message v-if="!adminStatus?.initialized" severity="warning" :closable="false" class="mb-6">
-        <div class="flex items-start gap-3">
-          <i class="pi pi-exclamation-triangle text-2xl mt-1"></i>
-          <div>
-            <strong>Administration non initialisée</strong>
-            <p class="text-sm mt-1">L'administration n'a pas encore été configurée. Veuillez définir les identifiants administrateur.</p>
+    <div style="max-width: 80rem; margin: 0 auto; padding: 2rem 1rem;">
+      <!-- Quick Stats -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+        <!-- Stat Card 1 -->
+        <div style="background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); overflow: hidden; transition: all 0.3s;">
+          <div style="background: linear-gradient(to right, #3b82f6, #1d4ed8); padding: 1rem; color: white;">
+            <i class="pi pi-users" style="font-size: 1.875rem;"></i>
+          </div>
+          <div style="padding: 1rem;">
+            <p style="color: #495057; font-size: 0.875rem; margin-bottom: 0.5rem;">Compte Admin</p>
+            <p style="font-size: 1.5rem; font-weight: 700; color: #111827;">{{ adminStatus?.admin_email || 'Non configuré' }}</p>
+            <p style="font-size: 0.75rem; color: #6c757d; margin-top: 0.75rem;">
+              <i :class="`pi ${adminStatus?.initialized ? 'pi-check-circle' : 'pi-exclamation-circle'}`" :style="`color: ${adminStatus?.initialized ? '#16a34a' : '#dc2626'};`"></i>
+              {{ adminStatus?.initialized ? 'Actif' : 'Inactif' }}
+            </p>
           </div>
         </div>
-      </Message>
 
-      <!-- Quick Stats -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <Card class="shadow-md border-0" :pt="{ content: { class: 'p-4 sm:p-6' } }">
-          <template #header>
-            <div class="bg-gradient-to-r from-blue-500 to-blue-600 p-4 sm:p-6 rounded-t-lg">
-              <i class="pi pi-users text-3xl text-white"></i>
-            </div>
-          </template>
-          <p class="text-gray-600 text-sm mb-2">Compte Admin</p>
-          <p class="text-2xl font-bold text-gray-900">{{ adminStatus?.admin_email || 'Non configuré' }}</p>
-          <p class="text-xs text-gray-500 mt-3">
-            <i :class="`pi ${adminStatus?.initialized ? 'pi-check-circle text-green-600' : 'pi-exclamation-circle text-red-600'} mr-1`"></i>
-            {{ adminStatus?.initialized ? 'Actif' : 'Inactif' }}
-          </p>
-        </Card>
+        <!-- Stat Card 2 -->
+        <div style="background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); overflow: hidden; transition: all 0.3s;">
+          <div style="background: linear-gradient(to right, #a855f7, #7e22ce); padding: 1rem; color: white;">
+            <i class="pi pi-phone" style="font-size: 1.875rem;"></i>
+          </div>
+          <div style="padding: 1rem;">
+            <p style="color: #495057; font-size: 0.875rem; margin-bottom: 0.5rem;">Demandes Numéros Dédiés</p>
+            <p style="font-size: 1.5rem; font-weight: 700; color: #111827;">{{ pendingRequests }}</p>
+            <button 
+              @click="$router.push('/admin/plans')"
+              style="font-size: 0.75rem; color: #2563eb; cursor: pointer; background: none; border: none; margin-top: 0.75rem; font-weight: 500;"
+            >
+              <i class="pi pi-arrow-right"></i>Gérer
+            </button>
+          </div>
+        </div>
 
-        <Card class="shadow-md border-0" :pt="{ content: { class: 'p-4 sm:p-6' } }">
-          <template #header>
-            <div class="bg-gradient-to-r from-purple-500 to-purple-600 p-4 sm:p-6 rounded-t-lg">
-              <i class="pi pi-phone text-3xl text-white"></i>
-            </div>
-          </template>
-          <p class="text-gray-600 text-sm mb-2">Demandes Numéros Dédiés</p>
-          <p class="text-2xl font-bold text-gray-900">{{ pendingRequests }}</p>
-          <button 
-            @click="$router.push('/admin/plans')"
-            class="text-xs text-blue-600 hover:text-blue-700 mt-3 font-medium"
-          >
-            <i class="pi pi-arrow-right mr-1"></i>Gérer
-          </button>
-        </Card>
-
-        <Card class="shadow-md border-0" :pt="{ content: { class: 'p-4 sm:p-6' } }">
-          <template #header>
-            <div class="bg-gradient-to-r from-green-500 to-green-600 p-4 sm:p-6 rounded-t-lg">
-              <i class="pi pi-list text-3xl text-white"></i>
-            </div>
-          </template>
-          <p class="text-gray-600 text-sm mb-2">Plans Disponibles</p>
-          <p class="text-2xl font-bold text-gray-900">{{ plansCount }}</p>
-          <button 
-            @click="$router.push('/admin/plans')"
-            class="text-xs text-blue-600 hover:text-blue-700 mt-3 font-medium"
-          >
-            <i class="pi pi-arrow-right mr-1"></i>Configurer
-          </button>
-        </Card>
+        <!-- Stat Card 3 -->
+        <div style="background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); overflow: hidden; transition: all 0.3s;">
+          <div style="background: linear-gradient(to right, #22c55e, #16a34a); padding: 1rem; color: white;">
+            <i class="pi pi-list" style="font-size: 1.875rem;"></i>
+          </div>
+          <div style="padding: 1rem;">
+            <p style="color: #495057; font-size: 0.875rem; margin-bottom: 0.5rem;">Plans Disponibles</p>
+            <p style="font-size: 1.5rem; font-weight: 700; color: #111827;">{{ plansCount }}</p>
+            <button 
+              @click="$router.push('/admin/plans')"
+              style="font-size: 0.75rem; color: #2563eb; cursor: pointer; background: none; border: none; margin-top: 0.75rem; font-weight: 500;"
+            >
+              <i class="pi pi-arrow-right"></i>Configurer
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- Navigation Grid -->
-      <div class="mb-8">
-        <h2 class="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-          <i class="pi pi-sitemap text-blue-600"></i>Modules d'Administration
+      <div style="margin-bottom: 2rem;">
+        <h2 style="font-size: 1.5rem; font-weight: 700; color: #111827; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+          <i class="pi pi-sitemap" style="color: #2563eb;"></i>Modules d'Administration
         </h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
           <!-- Plans Management -->
-          <router-link to="/admin/plans" class="group">
-            <Card class="shadow-md border-0 h-full hover:shadow-xl transition transform hover:-translate-y-1" :pt="{ content: { class: 'p-4 sm:p-6' } }">
-              <template #header>
-                <div class="bg-gradient-to-r from-indigo-500 to-indigo-600 p-4 sm:p-6 rounded-t-lg group-hover:from-indigo-600 group-hover:to-indigo-700 transition">
-                  <i class="pi pi-list text-4xl text-white"></i>
-                </div>
-              </template>
-              <h3 class="text-lg font-bold text-gray-900 mb-2">Plans de Facturation</h3>
-              <p class="text-gray-600 text-sm mb-4">Gérez les plans, les prix et les minutes incluses</p>
-              <div class="flex items-center gap-2 text-blue-600 font-medium text-sm group-hover:gap-3 transition">
-                <span>Accéder</span>
-                <i class="pi pi-arrow-right"></i>
+          <router-link to="/admin/plans" style="text-decoration: none;">
+            <div style="background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); overflow: hidden; transition: all 0.3s; height: 100%; cursor: pointer;" @mouseover="event.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(0, 0, 0, 0.1)'; event.currentTarget.style.transform = 'translateY(-4px)'" @mouseout="event.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1)'; event.currentTarget.style.transform = 'translateY(0)'">
+              <div style="background: linear-gradient(to right, #4f46e5, #4338ca); padding: 1rem; color: white;">
+                <i class="pi pi-list" style="font-size: 2rem;"></i>
               </div>
-            </Card>
+              <div style="padding: 1rem;">
+                <h3 style="font-size: 1.125rem; font-weight: 700; color: #111827; margin-bottom: 0.5rem;">Plans de Facturation</h3>
+                <p style="color: #495057; font-size: 0.875rem; margin-bottom: 1rem;">Gérez les plans, les prix et les minutes incluses</p>
+                <div style="display: flex; align-items: center; gap: 0.5rem; color: #2563eb; font-weight: 500; font-size: 0.875rem;">
+                  <span>Accéder</span>
+                  <i class="pi pi-arrow-right"></i>
+                </div>
+              </div>
+            </div>
           </router-link>
 
           <!-- Dedicated Numbers -->
-          <router-link to="/admin/plans" class="group">
-            <Card class="shadow-md border-0 h-full hover:shadow-xl transition transform hover:-translate-y-1" :pt="{ content: { class: 'p-4 sm:p-6' } }">
-              <template #header>
-                <div class="bg-gradient-to-r from-purple-500 to-purple-600 p-4 sm:p-6 rounded-t-lg group-hover:from-purple-600 group-hover:to-purple-700 transition">
-                  <i class="pi pi-phone text-4xl text-white"></i>
-                </div>
-              </template>
-              <h3 class="text-lg font-bold text-gray-900 mb-2">Numéros Dédiés</h3>
-              <p class="text-gray-600 text-sm mb-4">Approuvez ou rejetez les demandes de numéros dédiés</p>
-              <div class="flex items-center gap-2 text-blue-600 font-medium text-sm group-hover:gap-3 transition">
-                <span>Accéder</span>
-                <i class="pi pi-arrow-right"></i>
+          <router-link to="/admin/plans" style="text-decoration: none;">
+            <div style="background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); overflow: hidden; transition: all 0.3s; height: 100%; cursor: pointer;" @mouseover="event.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(0, 0, 0, 0.1)'; event.currentTarget.style.transform = 'translateY(-4px)'" @mouseout="event.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1)'; event.currentTarget.style.transform = 'translateY(0)'">
+              <div style="background: linear-gradient(to right, #a855f7, #7e22ce); padding: 1rem; color: white;">
+                <i class="pi pi-phone" style="font-size: 2rem;"></i>
               </div>
-            </Card>
+              <div style="padding: 1rem;">
+                <h3 style="font-size: 1.125rem; font-weight: 700; color: #111827; margin-bottom: 0.5rem;">Numéros Dédiés</h3>
+                <p style="color: #495057; font-size: 0.875rem; margin-bottom: 1rem;">Approuvez ou rejetez les demandes de numéros dédiés</p>
+                <div style="display: flex; align-items: center; gap: 0.5rem; color: #2563eb; font-weight: 500; font-size: 0.875rem;">
+                  <span>Accéder</span>
+                  <i class="pi pi-arrow-right"></i>
+                </div>
+              </div>
+            </div>
           </router-link>
 
           <!-- Calls Audit -->
-          <router-link to="/admin/calls-audit" class="group">
-            <Card class="shadow-md border-0 h-full hover:shadow-xl transition transform hover:-translate-y-1" :pt="{ content: { class: 'p-4 sm:p-6' } }">
-              <template #header>
-                <div class="bg-gradient-to-r from-orange-500 to-orange-600 p-4 sm:p-6 rounded-t-lg group-hover:from-orange-600 group-hover:to-orange-700 transition">
-                  <i class="pi pi-history text-4xl text-white"></i>
-                </div>
-              </template>
-              <h3 class="text-lg font-bold text-gray-900 mb-2">Audit des Webhooks</h3>
-              <p class="text-gray-600 text-sm mb-4">Consultez l'historique et le dépannage des appels</p>
-              <div class="flex items-center gap-2 text-blue-600 font-medium text-sm group-hover:gap-3 transition">
-                <span>Accéder</span>
-                <i class="pi pi-arrow-right"></i>
+          <router-link to="/admin/calls-audit" style="text-decoration: none;">
+            <div style="background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); overflow: hidden; transition: all 0.3s; height: 100%; cursor: pointer;" @mouseover="event.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(0, 0, 0, 0.1)'; event.currentTarget.style.transform = 'translateY(-4px)'" @mouseout="event.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1)'; event.currentTarget.style.transform = 'translateY(0)'">
+              <div style="background: linear-gradient(to right, #f97316, #ea580c); padding: 1rem; color: white;">
+                <i class="pi pi-history" style="font-size: 2rem;"></i>
               </div>
-            </Card>
+              <div style="padding: 1rem;">
+                <h3 style="font-size: 1.125rem; font-weight: 700; color: #111827; margin-bottom: 0.5rem;">Audit des Webhooks</h3>
+                <p style="color: #495057; font-size: 0.875rem; margin-bottom: 1rem;">Consultez l'historique et le dépannage des appels</p>
+                <div style="display: flex; align-items: center; gap: 0.5rem; color: #2563eb; font-weight: 500; font-size: 0.875rem;">
+                  <span>Accéder</span>
+                  <i class="pi pi-arrow-right"></i>
+                </div>
+              </div>
+            </div>
           </router-link>
 
           <!-- Security Settings -->
-          <router-link to="/admin/security" class="group">
-            <Card class="shadow-md border-0 h-full hover:shadow-xl transition transform hover:-translate-y-1" :pt="{ content: { class: 'p-4 sm:p-6' } }">
-              <template #header>
-                <div class="bg-gradient-to-r from-red-500 to-red-600 p-4 sm:p-6 rounded-t-lg group-hover:from-red-600 group-hover:to-red-700 transition">
-                  <i class="pi pi-lock text-4xl text-white"></i>
-                </div>
-              </template>
-              <h3 class="text-lg font-bold text-gray-900 mb-2">Sécurité Avancée</h3>
-              <p class="text-gray-600 text-sm mb-4">Gérez les identifiants, tokens et sessions</p>
-              <div class="flex items-center gap-2 text-blue-600 font-medium text-sm group-hover:gap-3 transition">
-                <span>Accéder</span>
-                <i class="pi pi-arrow-right"></i>
+          <router-link to="/admin/security" style="text-decoration: none;">
+            <div style="background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); overflow: hidden; transition: all 0.3s; height: 100%; cursor: pointer;" @mouseover="event.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(0, 0, 0, 0.1)'; event.currentTarget.style.transform = 'translateY(-4px)'" @mouseout="event.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1)'; event.currentTarget.style.transform = 'translateY(0)'">
+              <div style="background: linear-gradient(to right, #ef4444, #dc2626); padding: 1rem; color: white;">
+                <i class="pi pi-lock" style="font-size: 2rem;"></i>
               </div>
-            </Card>
+              <div style="padding: 1rem;">
+                <h3 style="font-size: 1.125rem; font-weight: 700; color: #111827; margin-bottom: 0.5rem;">Sécurité Avancée</h3>
+                <p style="color: #495057; font-size: 0.875rem; margin-bottom: 1rem;">Gérez les identifiants, tokens et sessions</p>
+                <div style="display: flex; align-items: center; gap: 0.5rem; color: #2563eb; font-weight: 500; font-size: 0.875rem;">
+                  <span>Accéder</span>
+                  <i class="pi pi-arrow-right"></i>
+                </div>
+              </div>
+            </div>
           </router-link>
 
           <!-- Logs & Monitoring -->
-          <router-link to="/admin/logs" class="group">
-            <Card class="shadow-md border-0 h-full hover:shadow-xl transition transform hover:-translate-y-1" :pt="{ content: { class: 'p-4 sm:p-6' } }">
-              <template #header>
-                <div class="bg-gradient-to-r from-cyan-500 to-cyan-600 p-4 sm:p-6 rounded-t-lg group-hover:from-cyan-600 group-hover:to-cyan-700 transition">
-                  <i class="pi pi-chart-bar text-4xl text-white"></i>
-                </div>
-              </template>
-              <h3 class="text-lg font-bold text-gray-900 mb-2">Logs & Monitoring</h3>
-              <p class="text-gray-600 text-sm mb-4">Consultez les logs serveur et l'activité admin</p>
-              <div class="flex items-center gap-2 text-blue-600 font-medium text-sm group-hover:gap-3 transition">
-                <span>Accéder</span>
-                <i class="pi pi-arrow-right"></i>
+          <router-link to="/admin/logs" style="text-decoration: none;">
+            <div style="background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); overflow: hidden; transition: all 0.3s; height: 100%; cursor: pointer;" @mouseover="event.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(0, 0, 0, 0.1)'; event.currentTarget.style.transform = 'translateY(-4px)'" @mouseout="event.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1)'; event.currentTarget.style.transform = 'translateY(0)'">
+              <div style="background: linear-gradient(to right, #06b6d4, #0891b2); padding: 1rem; color: white;">
+                <i class="pi pi-chart-bar" style="font-size: 2rem;"></i>
               </div>
-            </Card>
+              <div style="padding: 1rem;">
+                <h3 style="font-size: 1.125rem; font-weight: 700; color: #111827; margin-bottom: 0.5rem;">Logs & Monitoring</h3>
+                <p style="color: #495057; font-size: 0.875rem; margin-bottom: 1rem;">Consultez les logs serveur et l'activité admin</p>
+                <div style="display: flex; align-items: center; gap: 0.5rem; color: #2563eb; font-weight: 500; font-size: 0.875rem;">
+                  <span>Accéder</span>
+                  <i class="pi pi-arrow-right"></i>
+                </div>
+              </div>
+            </div>
           </router-link>
 
           <!-- Settings -->
-          <router-link to="/admin/settings" class="group">
-            <Card class="shadow-md border-0 h-full hover:shadow-xl transition transform hover:-translate-y-1" :pt="{ content: { class: 'p-4 sm:p-6' } }">
-              <template #header>
-                <div class="bg-gradient-to-r from-slate-500 to-slate-600 p-4 sm:p-6 rounded-t-lg group-hover:from-slate-600 group-hover:to-slate-700 transition">
-                  <i class="pi pi-cog text-4xl text-white"></i>
-                </div>
-              </template>
-              <h3 class="text-lg font-bold text-gray-900 mb-2">Configuration Générale</h3>
-              <p class="text-gray-600 text-sm mb-4">Paramètres globaux et configuration serveur</p>
-              <div class="flex items-center gap-2 text-blue-600 font-medium text-sm group-hover:gap-3 transition">
-                <span>Accéder</span>
-                <i class="pi pi-arrow-right"></i>
+          <router-link to="/admin/settings" style="text-decoration: none;">
+            <div style="background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); overflow: hidden; transition: all 0.3s; height: 100%; cursor: pointer;" @mouseover="event.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(0, 0, 0, 0.1)'; event.currentTarget.style.transform = 'translateY(-4px)'" @mouseout="event.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1)'; event.currentTarget.style.transform = 'translateY(0)'">
+              <div style="background: linear-gradient(to right, #64748b, #475569); padding: 1rem; color: white;">
+                <i class="pi pi-cog" style="font-size: 2rem;"></i>
               </div>
-            </Card>
+              <div style="padding: 1rem;">
+                <h3 style="font-size: 1.125rem; font-weight: 700; color: #111827; margin-bottom: 0.5rem;">Configuration Générale</h3>
+                <p style="color: #495057; font-size: 0.875rem; margin-bottom: 1rem;">Paramètres globaux et configuration serveur</p>
+                <div style="display: flex; align-items: center; gap: 0.5rem; color: #2563eb; font-weight: 500; font-size: 0.875rem;">
+                  <span>Accéder</span>
+                  <i class="pi pi-arrow-right"></i>
+                </div>
+              </div>
+            </div>
           </router-link>
         </div>
       </div>
 
       <!-- Security Information -->
-      <Card class="shadow-md border-0" :pt="{ content: { class: 'p-4 sm:p-6' } }">
-        <template #header>
-          <div class="bg-gradient-to-r from-amber-500 to-amber-600 p-4 sm:p-6 rounded-t-lg">
-            <h3 class="text-white font-semibold flex items-center gap-2">
-              <i class="pi pi-shield"></i>Infos de Sécurité
-            </h3>
-          </div>
-        </template>
-        <div class="space-y-3 text-sm">
-          <div class="flex items-start gap-3">
-            <i class="pi pi-check-circle text-green-600 mt-1"></i>
+      <div style="background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); overflow: hidden;">
+        <div style="background: linear-gradient(to right, #f59e0b, #d97706); padding: 1rem; color: white;">
+          <h3 style="font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
+            <i class="pi pi-shield"></i>Infos de Sécurité
+          </h3>
+        </div>
+        <div style="padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem; font-size: 0.875rem;">
+          <div style="display: flex; gap: 0.75rem;">
+            <i class="pi pi-check-circle" style="color: #16a34a; flex-shrink: 0; margin-top: 0.25rem;"></i>
             <div>
               <strong>Authentification en deux étapes</strong>
-              <p class="text-gray-600">Tous les accès admin sont validés par email et mot de passe</p>
+              <p style="color: #495057;">Tous les accès admin sont validés par email et mot de passe</p>
             </div>
           </div>
-          <div class="flex items-start gap-3">
-            <i class="pi pi-check-circle text-green-600 mt-1"></i>
+          <div style="display: flex; gap: 0.75rem;">
+            <i class="pi pi-check-circle" style="color: #16a34a; flex-shrink: 0; margin-top: 0.25rem;"></i>
             <div>
               <strong>Tokens temporaires</strong>
-              <p class="text-gray-600">Les tokens d'accès sont générés de manière aléatoire et stockés de façon sécurisée</p>
+              <p style="color: #495057;">Les tokens d'accès sont générés de manière aléatoire et stockés de façon sécurisée</p>
             </div>
           </div>
-          <div class="flex items-start gap-3">
-            <i class="pi pi-check-circle text-green-600 mt-1"></i>
+          <div style="display: flex; gap: 0.75rem;">
+            <i class="pi pi-check-circle" style="color: #16a34a; flex-shrink: 0; margin-top: 0.25rem;"></i>
             <div>
               <strong>Sessions isolées</strong>
-              <p class="text-gray-600">Chaque session admin est indépendante et peut être révoquée individuellement</p>
+              <p style="color: #495057;">Chaque session admin est indépendante et peut être révoquée individuellement</p>
             </div>
           </div>
-          <div class="flex items-start gap-3">
-            <i class="pi pi-exclamation-circle text-amber-600 mt-1"></i>
+          <div style="display: flex; gap: 0.75rem;">
+            <i class="pi pi-exclamation-circle" style="color: #d97706; flex-shrink: 0; margin-top: 0.25rem;"></i>
             <div>
               <strong>Conseil de sécurité</strong>
-              <p class="text-gray-600">Changez régulièrement votre mot de passe administrateur et déconnectez-vous après chaque session</p>
+              <p style="color: #495057;">Changez régulièrement votre mot de passe administrateur et déconnectez-vous après chaque session</p>
             </div>
           </div>
         </div>
-      </Card>
+      </div>
     </div>
   </div>
 </template>
@@ -273,12 +269,10 @@
 <script>
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
-import Card from 'primevue/card'
-import Message from 'primevue/message'
 
 export default {
   name: 'AdminDashboard',
-  components: { Card, Message },
+  components: {},
   setup() {
     const adminEmail = ref('')
     const adminStatus = ref(null)

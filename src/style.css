@@ -282,6 +282,112 @@ h3 {
   to { transform: rotate(360deg); }
 }
 
+/* PrimeVue Components - Fix visibility issues */
+.p-card {
+  position: relative !important;
+  z-index: 1 !important;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.p-card-content {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+.p-card-body {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.p-message {
+  display: block !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+.p-message-content {
+  display: block !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.p-inputtext {
+  display: block !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  background-color: #ffffff !important;
+}
+
+.p-button {
+  display: inline-flex !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.p-divider {
+  display: block !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.p-progressspinner {
+  display: flex !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.p-tag {
+  display: inline-block !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.p-badge {
+  display: inline-flex !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.p-datatable {
+  display: block !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* Ensure no z-index conflicts */
+.p-modal {
+  z-index: 1000 !important;
+}
+
+.p-sidebar {
+  z-index: 999 !important;
+}
+
+.p-dropdown-panel {
+  z-index: 100 !important;
+}
+
+/* Force grid and flex display for containers */
+.p-grid {
+  display: grid !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.p-col {
+  display: block !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
 /* PrimeVue Custom Styles */
 .p-button {
   background: var(--primary) !important;
