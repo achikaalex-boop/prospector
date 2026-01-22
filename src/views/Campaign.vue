@@ -835,6 +835,10 @@ const handleSubmit = async () => {
     sendServerLog(`Résultat supabase.auth.getUser(): ${user ? user.id : 'aucun user'}`, { user: user ? user.id : null })
     if (!user) throw new Error('Utilisateur non authentifié')
 
+    // Get the authentication token
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.access_token) throw new Error('Token d\'authentification non disponible')
+
     // Prepare payload to send to server for validation + creation
     const payload = {
       user_id: user.id,
@@ -854,7 +858,10 @@ const handleSubmit = async () => {
     }
 
     try {
-      const resp = await axios.post('/api/create-campaign', payload, { timeout: 30000 })
+      const resp = await axios.post('/api/create-campaign', payload, { 
+        timeout: 30000,
+        headers: { 'Authorization': `Bearer ${session.access_token}` }
+      })
       if (resp.status === 201 || resp.status === 202) {
         const msg = `Campagne créée avec succès ! ${contacts.value.length} contacts seront prospectés.`
         success.value = msg
