@@ -157,9 +157,11 @@ onMounted(() => {
     supabase.auth.onAuthStateChange((event, session) => {
       isAuthenticated.value = !!session
       fetchBalance()
-      // Do not force redirect to /login if visiting admin routes
+      // Do not force redirect to /login if visiting public pages or admin routes
       const currentPath = router.currentRoute.value.path || ''
-      if (!session && currentPath !== '/login' && currentPath !== '/register' && !currentPath.startsWith('/admin')) {
+      const publicPages = ['/login', '/register', '/privacy-policy', '/terms-of-service', '/pricing', '/techniques']
+      const isPublicPage = publicPages.includes(currentPath) || currentPath.startsWith('/admin')
+      if (!session && !isPublicPage) {
         router.push('/login')
       }
     })

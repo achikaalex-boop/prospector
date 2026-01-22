@@ -254,32 +254,53 @@ export default {
 
 <style scoped>
 .admin-input {
-  width: 100%;
-  padding: 0.75rem 1rem;
-  border: 1px solid #d1d5db;
-  border-radius: 0.5rem;
-  background-color: white;
-  color: #111827;
-  font-size: 1rem;
-  transition: all 0.2s;
-  box-sizing: border-box;
-  display: block;
+  width: 100% !important;
+  padding: 0.75rem 1rem !important;
+  border: 1px solid #d1d5db !important;
+  border-radius: 0.5rem !important;
+  background-color: #ffffff !important;
+  color: #111827 !important;
+  font-size: 1rem !important;
+  transition: all 0.2s !important;
+  box-sizing: border-box !important;
+  display: block !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  position: relative !important;
+  z-index: 1 !important;
 }
 
 .admin-input:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
+  background-color: #ffffff !important;
 }
 
 .admin-input:disabled {
-  background-color: #f3f4f6;
-  color: #9ca3af;
+  background-color: #f3f4f6 !important;
+  color: #9ca3af !important;
   cursor: not-allowed;
 }
 
 .admin-input::placeholder {
-  color: #9ca3af;
+  color: #9ca3af !important;
+}
+
+form {
+  position: relative;
+  z-index: 1;
+}
+
+form > div {
+  position: relative;
+  z-index: 1;
+}
+
+label {
+  display: block !important;
+  position: relative !important;
+  z-index: 1 !important;
 }
 
 :deep(.p-card) {
