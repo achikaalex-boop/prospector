@@ -1814,6 +1814,25 @@ export async function handleCreateBatch(req, res) {
     return res.status(500).json({ error: 'Server misconfiguration: RETELL_API_KEY not set' })
   }
 
+  // Extract user_id from auth token
+  let userId = null
+  try {
+    const auth = req.headers['authorization'] || null
+    if (auth) {
+      const token = String(auth).split(' ')[1]
+      if (token && supabase) {
+        const { data: userResp, error: userErr } = await supabase.auth.getUser(token)
+        const user = userResp?.user || null
+        if (user && !userErr) {
+          userId = user.id
+          console.log(`handleCreateBatch: authenticated as user ${userId}`)
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to extract user from auth token:', e?.message)
+  }
+
   // Log a sanitized summary of the request for debugging (no sensitive data)
   try {
     const taskPreview = payload.tasks.slice(0, 5).map(t => ({ to: t.to_number }))
@@ -1835,7 +1854,7 @@ export async function handleCreateBatch(req, res) {
   if (typeof payload.send_now === 'undefined') payload.send_now = true
   // Enqueue the batch into the queue system to respect concurrency limits
   try {
-    const enqueueResp = await enqueueBatchJob(payload)
+    const enqueueResp = await enqueueBatchJob(payload, { user_id: userId })
     console.log('Enqueued batch job:', enqueueResp)
     return res.status(202).json({ queued: true, job: enqueueResp })
   } catch (e) {
