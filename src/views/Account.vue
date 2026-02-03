@@ -9,7 +9,7 @@
           <div class="text-lg font-semibold">{{ planLabel }}</div>
           <div class="text-sm text-gray-500" v-if="plan && plan.started_at">Commencé: {{ formatDate(plan.started_at) }}</div>
           <div class="text-sm text-gray-500" v-if="plan && plan.expires_at">Expire: {{ formatDate(plan.expires_at) }}</div>
-          <div class="text-sm text-red-600" v-if="planExpired">Expiré — vous êtes sur Starter</div>
+          <div class="text-sm text-red-600" v-if="planExpired">Expiré — vous êtes sur Pro</div>
         </div>
         <div class="text-right">
           <button @click="goToPricing" class="bg-blue-600 text-white px-4 py-2 rounded">Changer le plan</button>
@@ -138,8 +138,8 @@ export default {
   },
   computed: {
     planLabel() {
-      if (!this.plan) return 'Starter (par défaut)'
-      return this.plan.plan_slug || this.plan.slug || 'Starter'
+      if (!this.plan) return 'Pro (par défaut)'
+      return this.plan.plan_slug || this.plan.slug || 'Pro'
     },
     planExpired() {
       try {

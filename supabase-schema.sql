@@ -373,9 +373,7 @@ CREATE POLICY "Server can manage jobs"
 -- ============================================
 INSERT INTO plans (slug, name, monthly_price_cents, included_minutes, per_min_cents, max_contacts_per_campaign, max_concurrency, description)
 SELECT * FROM (VALUES
-  ('free','Free',0,0,0,10,5,1,'Free tier: limited to 10 contacts per campaign, 1 concurrency, 5 campaigns/month'),
-  ('starter','Starter',9900,600,15,1000,2,'Starter plan: includes minutes and modest concurrency'),
-  ('pro','Pro',29900,5000,10,5000,10,'Pro plan with higher limits and lower per-minute cost')
+  ('pro','Pro',39900,1500,25,5000,10,'Pro: accès complet à toutes les fonctionnalités et limites élevées')
 ) AS t(slug,name,monthly_price_cents,included_minutes,per_min_cents,max_contacts_per_campaign,max_concurrency,description)
 WHERE NOT EXISTS (SELECT 1 FROM plans p WHERE p.slug = t.slug);
 
@@ -384,7 +382,7 @@ WHERE NOT EXISTS (SELECT 1 FROM plans p WHERE p.slug = t.slug);
 -- DEFAULT USER RECORDS ON SIGNUP
 -- ============================================
 -- Create a trigger that inserts default rows for a user when they sign up.
--- On user creation we add a starter plan (slug 'starter') and a zero credit row.
+-- On user creation we add the 'pro' plan (slug 'pro') and a zero credit row.
 -- Note: the trigger runs on inserts to `auth.users`. When applying this
 -- migration in Supabase, ensure the executing role has sufficient rights
 -- (the Supabase SQL editor typically runs as an admin). The webhook/server
@@ -396,10 +394,10 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 BEGIN
-  -- Insert a default plan if none exists
+  -- Insert default PRO plan if none exists
   IF NOT EXISTS (SELECT 1 FROM public.user_plans WHERE user_id = NEW.id) THEN
     INSERT INTO public.user_plans(user_id, plan_slug, per_min_cents, concurrency_limit, started_at, expires_at, created_at, updated_at)
-    VALUES (NEW.id, 'starter', NULL, 20, NOW(), NULL, NOW(), NOW());
+    VALUES (NEW.id, 'pro', 25, 50, NOW(), NULL, NOW(), NOW());
   END IF;
 
   -- Insert an initial zero credit row if none exists

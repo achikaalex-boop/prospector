@@ -81,7 +81,7 @@
 - Création/gestion de campagnes de prospection vocale automatisées
 - Intégration Retell AI pour les appels vocaux
 - Système de billing avec PayPal
-- Gestion multi-plans (free, starter, pro)
+- Gestion des plans: seul le plan `pro` est disponible
 - Dashboard de suivi des résultats d'appels
 - Interface admin pour la gestion des plans et numéros dédiés
 

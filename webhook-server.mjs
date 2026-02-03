@@ -161,7 +161,7 @@ app.post('/api/preview-cost', async (req, res) => {
     const body = req.body || {}
     const contactsCount = Number(body.contacts_count) || 0
     const avgCallSec = Number(body.estimated_avg_call_seconds) || 60
-    const planSlug = body.plan_slug || 'starter'
+    const planSlug = body.plan_slug || 'pro'
 
     // Basic pricing rules: provider cost $0.15/min -> 15 cents per minute
     // We apply a conservative margin to avoid selling at a loss
@@ -211,26 +211,26 @@ if (supabase) {
 
 async function getUserPlanSlug(userId) {
   try {
-    if (!userId || !supabase) return 'free'
+    if (!userId || !supabase) return 'pro'
     const { data, error } = await supabase.from('user_plans').select('id,plan_slug,started_at,expires_at').eq('user_id', userId).order('started_at', { ascending: false }).limit(1).single()
-    if (error || !data) return 'free'
+    if (error || !data) return 'pro'
     try {
       if (data.expires_at && new Date(data.expires_at) <= new Date()) {
-        // plan expired: attempt to reset to starter/free
+        // plan expired: set to pro (no expiry)
         try {
-          await supabase.from('user_plans').update({ plan_slug: 'starter', started_at: new Date().toISOString(), expires_at: null }).eq('id', data.id)
-          console.log('Reset expired plan to starter for user', userId)
+          await supabase.from('user_plans').update({ plan_slug: 'pro', started_at: new Date().toISOString(), expires_at: null }).eq('id', data.id)
+          console.log('Reset expired plan to pro for user', userId)
         } catch (e) {
           console.warn('Could not reset expired user_plans for user', userId, e?.message || e)
         }
-        return 'starter'
+        return 'pro'
       }
     } catch (e) {
       // ignore parse errors
     }
-    return data.plan_slug || 'free'
+    return data.plan_slug || 'pro'
   } catch (e) {
-    return 'free'
+    return 'pro'
   }
 }
 
@@ -303,9 +303,9 @@ async function isRequestAdmin(req) {
 }
 
 function planIsFree(slug) {
-  if (!slug) return true
-  return String(slug).toLowerCase() === 'free' || String(slug).toLowerCase() === 'starter'
-}
+  // No free/trial plan exists: all users are expected to be on 'pro'
+  return false
+} 
 
 // Enqueue a job into Supabase job_queue table
 async function enqueueBatchJob(payload, opts = {}) {
@@ -986,25 +986,20 @@ app.post('/api/create-campaign', async (req, res) => {
       } catch (e) {}
     }
 
-    // Ensure plan is an object and apply defaults for free plan to force upgrade
-    plan = plan || { slug: planSlug || 'free' }
-    if (planIsFree(plan.slug)) {
-      // conservative but forcing limits for free tier
-      plan.max_contacts_per_campaign = Number(plan.max_contacts_per_campaign || 10)
-      plan.max_concurrency = Number(plan.max_concurrency || 1)
-      plan.monthly_campaign_limit = Number(plan.monthly_campaign_limit || 5)
-    } else {
-      // For paid plans
-      plan.max_contacts_per_campaign = Number(plan.max_contacts_per_campaign || 1000)
-      plan.max_concurrency = Number(plan.max_concurrency || 10)
-      plan.monthly_campaign_limit = Number(plan.monthly_campaign_limit || 100)
-    }
+    // Ensure plan is an object and apply defaults for paid plans (pro)
+    plan = plan || { slug: planSlug || 'pro' }
+
+    // For paid plans
+    plan.max_contacts_per_campaign = Number(plan.max_contacts_per_campaign || 5000)
+    plan.max_concurrency = Number(plan.max_concurrency || 10)
+    plan.monthly_campaign_limit = Number(plan.monthly_campaign_limit || 0)
+
 
     console.log(`[create-campaign] Plan loaded for user ${userId}:`, { slug: plan.slug, max_contacts_per_campaign: plan.max_contacts_per_campaign })
 
     const maxContacts = plan && plan.max_contacts_per_campaign ? Number(plan.max_contacts_per_campaign) : 1000
 
-    // Enforce monthly campaign limit (for free tier mainly)
+    // Enforce monthly campaign limit (for pro tier)
     const startOfMonth = new Date()
     startOfMonth.setUTCDate(1); startOfMonth.setUTCHours(0,0,0,0)
     const { data: monthCampaigns, error: monthErr } = await supabase.from('campaigns').select('id').eq('user_id', userId).gte('created_at', startOfMonth.toISOString())
@@ -1138,12 +1133,12 @@ app.get('/api/user-plan', async (req, res) => {
       if (planRow && planRow.expires_at) {
         try {
           if (new Date(planRow.expires_at) <= new Date()) {
-            // expired -> reset to starter (best-effort)
+            // expired -> reset to pro (best-effort)
             try {
-              await supabase.from('user_plans').update({ plan_slug: 'starter', started_at: new Date().toISOString(), expires_at: null }).eq('id', planRow.id)
-              console.log('Reset expired plan to starter for user', userId)
-              // return the starter plan row to client
-              planRow.plan_slug = 'starter'
+              await supabase.from('user_plans').update({ plan_slug: 'pro', started_at: new Date().toISOString(), expires_at: null }).eq('id', planRow.id)
+              console.log('Reset expired plan to pro for user', userId)
+              // return the pro plan row to client
+              planRow.plan_slug = 'pro'
               planRow.started_at = new Date().toISOString()
               planRow.expires_at = null
             } catch (e) {

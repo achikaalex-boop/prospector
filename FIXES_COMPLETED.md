@@ -369,6 +369,20 @@ From ANALYSE_UX_BUGS_RECOMMENDATIONS.md:
 
 ---
 
+### 8. ✅ Changement: Passage à un seul plan 'pro'
+
+**Date:** 2026-02-03
+
+**What was added:**
+- Le seul plan disponible est maintenant `pro` — il donne accès à toutes les fonctionnalités.
+- La trigger `create_user_default_records` crée maintenant un `user_plans` avec `plan_slug = 'pro'` (sans expiration).
+- UI: la page `Pricing` affiche uniquement le plan `pro`.
+- Backend: tous les contrôles de quotas utilisent désormais les limites du plan `pro`.
+
+**Impact:** Tous les nouveaux inscrits sont directement sur le plan `pro`. Les anciens comptes avec des slugs legacy (`free`, `trial`, `starter`) peuvent être convertis via migration si désiré.
+
+---
+
 ## ✨ Production Readiness
 
 **Status:** 🟢 **HIGH CRITICAL ISSUES RESOLVED**

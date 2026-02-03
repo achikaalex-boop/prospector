@@ -22,7 +22,7 @@ async function getConcurrencyLimitForPlan(planSlug) {
   }
   if (!planSlug) return 20
   const s = String(planSlug).toLowerCase()
-  if (s === 'free' || s === 'starter') return 20
+  if (!s) return 50
   if (s === 'pro' || s === 'standard') return 50
   if (s === 'enterprise' || s === 'business') return 200
   return 50
@@ -80,7 +80,7 @@ async function pollLoop() {
                 if (up) {
                   try {
                     if (up.expires_at && new Date(up.expires_at) <= new Date()) {
-                      effectivePlan = 'starter'
+                      effectivePlan = 'pro'
                     } else if (up.plan_slug) {
                       effectivePlan = up.plan_slug
                     }

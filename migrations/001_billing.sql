@@ -48,10 +48,10 @@ CREATE INDEX IF NOT EXISTS idx_usage_records_user_id ON usage_records(user_id);
 CREATE INDEX IF NOT EXISTS idx_usage_records_campaign_id ON usage_records(campaign_id);
 CREATE INDEX IF NOT EXISTS idx_user_plans_user_id ON user_plans(user_id);
 
--- Seed basic plans
+-- Seed basic plans (only 'pro' is used in this deployment)
 INSERT INTO plans (slug, name, description, monthly_price_cents, included_minutes, max_concurrency, max_contacts_per_campaign, deposit_min_cents)
-SELECT 'starter', 'Starter', 'Basic plan, pay-as-you-go with low concurrency', 0, 0, 1, 250, 500
-WHERE NOT EXISTS (SELECT 1 FROM plans WHERE slug = 'starter');
+SELECT 'pro', 'Pro', 'Pro: accès complet à toutes les fonctionnalités et limites élevées', 39900, 1500, 10, 5000, 0
+WHERE NOT EXISTS (SELECT 1 FROM plans WHERE slug = 'pro');
 
 INSERT INTO plans (slug, name, description, monthly_price_cents, included_minutes, max_concurrency, max_contacts_per_campaign, deposit_min_cents)
 SELECT 'premium', 'Premium', 'Priority queue, more concurrency and included minutes', 2999, 500, 3, 2000, 5000

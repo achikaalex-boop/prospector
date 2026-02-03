@@ -347,7 +347,7 @@
             <div class="space-y-4">
               <div>
                 <label class="block mb-2 font-semibold text-gray-700"
-                  >Fichier de contacts (CSV) *</label
+                  >Fichier de contacts (CSV)</label
                 >
                 <FileUpload
                   mode="basic"
@@ -366,18 +366,39 @@
                     de téléphone si absent.</span
                   >
                 </small>
+
+                <!-- Manual contacts entry (up to 10) -->
+                <div class="mt-4 border-t pt-4">
+                  <label class="block mb-2 font-semibold text-gray-700"
+                    >Ou ajouter manuellement (jusqu'à 10 contacts)</label
+                  >
+                  <small class="text-gray-500 text-sm block mb-2">
+                    Ajoutez le nom complet et le téléphone. Le préfixe "+" sera ajouté automatiquement si absent.
+                  </small>
+
+                  <div v-for="(mc, idx) in manualContacts" :key="idx" class="flex gap-2 items-center mb-2">
+                    <InputText v-model="mc.nom" placeholder="Nom complet" class="flex-1" />
+                    <InputText v-model="mc.telephone" placeholder="+33612345678" class="w-56" @blur="normalizeManualPhone(idx)" />
+                    <Button icon="pi pi-trash" class="p-button-text p-button-danger" @click="removeManualContact(idx)" />
+                  </div>
+
+                  <div class="flex items-center gap-2">
+                    <Button label="Ajouter un contact" icon="pi pi-plus" class="p-button-secondary" @click="addManualContact" :disabled="manualContacts.length >= 10 || loading" />
+                    <small v-if="manualContacts.length >= 10" class="text-sm text-gray-600">Maximum 10 contacts manuels. Pour plus, utilisez un fichier CSV.</small>
+                  </div>
+                </div>
               </div>
 
               <div
-                v-if="contacts.length > 0"
+                v-if="(contacts.length + manualContacts.length) > 0"
                 class="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200"
               >
                 <h3 class="font-semibold text-gray-900 mb-3">
-                  Contacts chargés ({{ contacts.length }})
+                  Contacts chargés ({{ contacts.length + manualContacts.length }})
                 </h3>
                 <DataTable
-                  :value="contacts.slice(0, 10)"
-                  :paginator="contacts.length > 10"
+                  :value="combinedContacts.slice(0, 10)"
+                  :paginator="(contacts.length + manualContacts.length) > 10"
                   :rows="5"
                   class="p-datatable-sm"
                   :scrollable="true"
@@ -389,10 +410,10 @@
                   <Column field="entreprise" header="Entreprise"></Column>
                 </DataTable>
                 <p
-                  v-if="contacts.length > 10"
+                  v-if="(contacts.length + manualContacts.length) > 10"
                   class="text-sm text-gray-600 mt-2 text-center"
                 >
-                  ... et {{ contacts.length - 10 }} autres contacts
+                  ... et {{ contacts.length + manualContacts.length - 10 }} autres contacts
                 </p>
               </div>
             </div>
@@ -416,7 +437,7 @@
                 label="Lancer la Campagne"
                 icon="pi pi-send"
                 :loading="loading"
-                :disabled="loading || contacts.length === 0 || (monthlyLimit > 0 && remainingSlots === 0)"
+                :disabled="loading || (contacts.length + manualContacts.length) === 0 || (monthlyLimit > 0 && remainingSlots === 0)"
                 :title="(monthlyLimit > 0 && remainingSlots === 0) ? 'Quota mensuel atteint — passez à un plan payant pour lancer plus de campagnes' : ''"
               />
             </div>
@@ -448,6 +469,7 @@ import Column from 'primevue/column'
 
 const router = useRouter()
 const contacts = ref([])
+const manualContacts = ref([]) // contacts added manually via the UI (max 10)
 const error = ref('')
 const success = ref('')
 const loading = ref(false)
@@ -589,7 +611,7 @@ const objectifsOptions = [
 
 // Pricing estimator state
 const plans = ref([])
-const selectedPlan = ref('starter')
+const selectedPlan = ref('pro')
 const estimatedAvgCallSeconds = ref(60)
 const estimate = ref(null)
 
@@ -600,6 +622,17 @@ const selectedPlanObj = computed(() => plans.value.find(p => p.slug === selected
 const monthlyLimit = computed(() => Number(selectedPlanObj.value?.monthly_campaign_limit || 0))
 const maxContactsPerCampaign = computed(() => Number(selectedPlanObj.value?.max_contacts_per_campaign || 0))
 const remainingSlots = computed(() => Math.max(0, monthlyLimit.value - (monthlyCount.value || 0)))
+
+// Combined contacts (manual + CSV uploads)
+const combinedContacts = computed(() => {
+  const mc = manualContacts.value.map(c => ({
+    nom: c.nom || '',
+    email: c.email || '',
+    telephone: c.telephone ? normalizePhoneNumber(c.telephone) : '',
+    entreprise: c.entreprise || ''
+  }))
+  return [...mc, ...contacts.value]
+})
 
 // Computed property: date de réinitialisation (1er du mois prochain)
 const firstDayOfNextMonth = computed(() => {
@@ -686,6 +719,28 @@ const normalizePhoneNumber = (phone) => {
 
   // Sinon, ajouter simplement le + au début
   return '+' + cleaned
+}
+
+// Manual contacts helpers
+const addManualContact = () => {
+  if (manualContacts.value.length >= 10) {
+    try { toast.add({ severity: 'warn', summary: 'Limite atteinte', detail: 'Maximum 10 contacts manuels. Pour plus, utilisez un fichier CSV.', life: 5000 }) } catch (e) {}
+    return
+  }
+  manualContacts.value.push({ nom: '', telephone: '' })
+}
+
+const removeManualContact = (idx) => {
+  manualContacts.value.splice(idx, 1)
+}
+
+const normalizeManualPhone = (idx) => {
+  const c = manualContacts.value[idx]
+  if (!c) return
+  c.telephone = normalizePhoneNumber(c.telephone)
+  if (c.telephone && !validatePhoneNumber(c.telephone)) {
+    try { toast.add({ severity: 'warn', summary: 'Numéro invalide', detail: `Numéro invalide : ${c.telephone}`, life: 4000 }) } catch (e) {}
+  }
 }
 
 // parseCSV using PapaParse for robust handling of quotes and line endings
@@ -808,7 +863,7 @@ const handleSubmit = async () => {
     missing.push('Précisez votre secteur')
   }
 
-  if (contacts.value.length === 0) missing.push('Fichier de contacts (CSV)')
+  if ((contacts.value.length + manualContacts.value.length) === 0) missing.push('Fichier de contacts (CSV) ou contacts manuels')
 
   if (missing.length > 0) {
     const msg = `Veuillez renseigner les champs obligatoires : ${missing.join(', ')}`
@@ -839,6 +894,27 @@ const handleSubmit = async () => {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session?.access_token) throw new Error('Token d\'authentification non disponible')
 
+    // Validate manual contacts (if any) and prepare combined contacts list
+    const manualErrors = []
+    const manualSanitized = manualContacts.value.map((mc, idx) => {
+      const i = idx + 1
+      const nom = sanitizeInput(mc.nom || '')
+      const telephone = normalizePhoneNumber(mc.telephone || '')
+      if (!nom) manualErrors.push(`Contact ${i}: nom manquant`)
+      if (!telephone) manualErrors.push(`Contact ${i}: téléphone manquant`)
+      else if (!validatePhoneNumber(telephone)) manualErrors.push(`Contact ${i}: numéro invalide ${telephone}`)
+      return { nom, telephone, email: mc.email || '', entreprise: mc.entreprise || '' }
+    })
+
+    if (manualErrors.length > 0) {
+      const msg = `Erreurs dans les contacts manuels : ${manualErrors.slice(0,5).join('; ')}${manualErrors.length > 5 ? `; ... et ${manualErrors.length - 5} autres` : ''}`
+      error.value = msg
+      try { toast.add({ severity: 'warn', summary: 'Erreurs contacts', detail: msg, life: 7000 }) } catch (e) {}
+      return
+    }
+
+    const combinedList = [...contacts.value, ...manualSanitized]
+
     // Prepare payload to send to server for validation + creation
     const payload = {
       user_id: user.id,
@@ -850,8 +926,8 @@ const handleSubmit = async () => {
       referral_name: sanitizeInput(formData.referral_name),
       infos: sanitizeInput(formData.infos),
       objectifs: sanitizeInput(formData.objectifs),
-      contacts: contacts.value,
-      contacts_count: contacts.value.length,
+      contacts: combinedList,
+      contacts_count: combinedList.length,
       estimated_avg_call_seconds: Number(estimatedAvgCallSeconds.value) || 60,
       from_number: formData.from_number,
       transfert_call_number: formData.transfert_call_number

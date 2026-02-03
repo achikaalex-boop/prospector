@@ -9,9 +9,7 @@
         <div class="flex items-start justify-between gap-3">
           <div class="flex-1">
             <div class="flex items-center gap-2 mb-2">
-              <span v-if="p.slug === 'free'" class="text-lg">🟢</span>
-              <span v-else-if="p.slug === 'starter'" class="text-lg">🔵</span>
-              <span v-else-if="p.slug === 'pro'" class="text-lg">🔴</span>
+              <span v-if="p.slug === 'pro'" class="text-lg">🔴</span>
               <h3 :class="['text-xl font-bold', p.slug === 'pro' ? 'text-white' : 'text-gray-900']">{{ p.name }}</h3>
             </div>
             <div :class="['mt-2 text-2xl font-bold', p.slug === 'pro' ? 'text-white' : 'text-gray-900']">{{ displayMoney(monthlyPriceCents(p)) }}<span class="text-sm font-normal">/mois</span></div>
@@ -41,8 +39,8 @@
 
         <!-- Button -->
         <div class="mt-6">
-          <button @click="subscribe(p)" :disabled="isPlanActive(p) || isLoading" :class="['w-full py-2 px-4 rounded font-semibold transition-all', p.slug === 'pro' ? 'bg-white text-blue-700 hover:bg-gray-100' : (p.slug === 'free' ? 'bg-gray-200 text-gray-900 hover:bg-gray-300' : 'bg-blue-600 text-white hover:bg-blue-700'), isPlanActive(p) || isLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer']">
-            {{ isPlanActive(p) ? '✓ Abonné' : (p.slug === 'free' ? 'Passer au gratuit' : "S'abonner") }}
+          <button @click="subscribe(p)" :disabled="isPlanActive(p) || isLoading" :class="['w-full py-2 px-4 rounded font-semibold transition-all', p.slug === 'pro' ? 'bg-white text-blue-700 hover:bg-gray-100' : 'bg-blue-600 text-white hover:bg-blue-700', isPlanActive(p) || isLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer']">
+            {{ isPlanActive(p) ? '✓ Abonné' : 'S\'abonner' }}
           </button>
         </div>
       </div>
@@ -101,6 +99,7 @@ export default {
         // Select only essential columns that are guaranteed to exist
         const { data, error } = await supabase.from('plans').select('slug,name,monthly_price_cents,per_min_cents,max_concurrency,max_contacts_per_campaign,monthly_campaign_limit,description')
             if (!error && Array.isArray(data) && data.length) {
+              // Keep only the 'pro' plan in the public Pricing page
               this.uiPlans = data.map(p => ({
                 slug: p.slug,
                 name: p.name,
@@ -112,7 +111,7 @@ export default {
                 max_contacts_per_campaign: Number(p.max_contacts_per_campaign) || 0,
                 monthly_campaign_limit: Number(p.monthly_campaign_limit) || 0,
                 description: p.description || ''
-              }))
+              })).filter(p => p.slug === 'pro')
           this.uiPlans.forEach(p => { this.estimatorMinutes[p.slug] = this.defaultEstimateMinutes })
         } else {
           this.uiPlans.forEach(p => { this.estimatorMinutes[p.slug] = this.defaultEstimateMinutes })
@@ -192,7 +191,7 @@ export default {
       try {
         const amountCents = Math.round(plan.monthly_price * 100)
         
-        // If plan is free (0 cents) switch immediately via server-side change-plan
+        // If plan is zero-priced (0 cents) switch immediately via server-side change-plan (handled for legacy or zero-cost plans)
         if (amountCents === 0) {
           try {
             if (!user_id) {

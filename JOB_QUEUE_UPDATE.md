@@ -112,7 +112,7 @@ enqueueBatchJob(payload, { user_id: userId })
     ↓
 job_queue table
     ├─ user_id: <UUID> ✅ NOW POPULATED!
-    └─ plan_slug: 'pro' | 'free' | etc
+    └─ plan_slug: 'pro' (unique plan)
     ↓
 queue.js worker
     ├─ Read user_id from job
