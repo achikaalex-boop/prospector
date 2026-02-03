@@ -1,0 +1,44 @@
+# Example Render configuration to deploy two services: web (API) and worker (background polling)
+# Customize secret names and plans in the Render dashboard.
+
+services:
+  - type: web
+    name: prospector-web
+    env: node
+    plan: starter
+    autoDeploy: true
+    buildCommand: "npm install && npm run build"
+    startCommand: "npm run webhook"
+    envVars:
+      # public (client) keys may be set as normal env vars
+      - key: VITE_SUPABASE_ANON_KEY
+        fromSecret: VITE_SUPABASE_ANON_KEY
+      - key: VITE_SUPABASE_URL
+        fromSecret: VITE_SUPABASE_URL
+      - key: VITE_RETELL_FROM_NUMBER
+        fromSecret: VITE_RETELL_FROM_NUMBER
+
+  - type: worker
+    name: prospector-worker
+    env: node
+    plan: starter
+    autoDeploy: true
+    startCommand: "npm run worker"
+    envVars:
+      # Sensitive server-side secrets (set as Render secrets and reference them here)
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        fromSecret: SUPABASE_SERVICE_ROLE_KEY
+      - key: SUPABASE_URL
+        fromSecret: SUPABASE_URL
+      - key: RETELL_API_KEY
+        fromSecret: RETELL_API_KEY
+      - key: PAYPAL_CLIENT_ID
+        fromSecret: PAYPAL_CLIENT_ID
+      - key: PAYPAL_SECRET
+        fromSecret: PAYPAL_SECRET
+
+# Notes:
+# - Add the corresponding secrets in the Render dashboard (Settings > Environment > Secrets).
+# - Ensure the worker service is of type "Background Worker" (Render will run it continuously).
+# - Do NOT expose SUPABASE_SERVICE_ROLE_KEY as a client-exposed VITE_ variable.
+# - Adjust 'plan' and other settings per your Render account tier.

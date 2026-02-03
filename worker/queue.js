@@ -93,6 +93,17 @@ async function pollLoop() {
               }
             } catch (e) {}
 
+            // Enforce global running campaigns cap (19) and per-user single running campaign
+            try {
+              const { data: runningAll } = await supabase.from('campaigns').select('id').eq('status', 'running')
+              if (Array.isArray(runningAll) && runningAll.length >= 19) continue
+            } catch (e) {}
+
+            try {
+              const { data: userRunning } = await supabase.from('campaigns').select('id').eq('status', 'running').eq('user_id', job.user_id)
+              if (Array.isArray(userRunning) && userRunning.length >= 1) continue
+            } catch (e) {}
+
             const limit = await getConcurrencyLimitForPlan(effectivePlan)
             const { data: running } = await supabase.from('job_queue').select('id').eq('status', 'processing').eq('plan_slug', job.plan_slug)
             if (running && running.length >= limit) continue
@@ -100,8 +111,23 @@ async function pollLoop() {
             const claimed = await claimPendingJob(job)
             if (!claimed) continue
 
+            // mark campaign running (best-effort) so that counts reflect it's starting
+            try {
+              const campaignId = claimed.payload && claimed.payload.tasks && claimed.payload.tasks[0] && claimed.payload.tasks[0].retell_llm_dynamic_variables && claimed.payload.tasks[0].retell_llm_dynamic_variables.campaign_id
+              if (campaignId) {
+                await supabase.from('campaigns').update({ status: 'running' }).eq('id', campaignId)
+              }
+            } catch (e) {}
+
             await processCreateBatch(claimed.payload, claimed.id)
           } catch (inner) {
+            // mark campaign as failed (best-effort)
+            try {
+              const campaignId = job.payload && job.payload.tasks && job.payload.tasks[0] && job.payload.tasks[0].retell_llm_dynamic_variables && job.payload.tasks[0].retell_llm_dynamic_variables.campaign_id
+              if (campaignId) {
+                await supabase.from('campaigns').update({ status: 'failed', last_error: String(inner && inner.message ? inner.message : inner) }).eq('id', campaignId)
+              }
+            } catch (e) {}
             console.error('Error processing job:', inner)
           }
         }

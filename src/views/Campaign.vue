@@ -103,6 +103,33 @@
                 />
               </div>
 
+              <!-- Send/Transfer numbers (added to Informations Entreprise) -->
+              <div class="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                <div>
+                  <label class="block mb-2 font-semibold text-gray-700">Numéro d'envoi</label>
+                  <Dropdown
+                    v-model="formData.from_number"
+                    :options="fromNumberOptions"
+                    optionLabel="label"
+                    optionValue="value"
+                    placeholder="Sélectionnez un numéro d'envoi"
+                    class="w-full"
+                  />
+                  <small class="text-gray-500 text-sm mt-1 block">Sélectionnez le numéro utilisé pour émettre les appels.</small>
+                </div>
+
+                <div>
+                  <label class="block mb-2 font-semibold text-gray-700">Numéro de transfert d'appel <span class="text-red-500">*</span></label>
+                  <InputText
+                    v-model="formData.transfert_call_number"
+                    placeholder="Ex: +33612345678"
+                    class="w-full"
+                    required
+                  />
+                  <small class="text-gray-500 text-sm mt-1 block">Le numéro vers lequel transférer l'appel si le lead demande à parler à un humain.</small>
+                </div>
+              </div>
+
               <div>
                 <label class="block mb-2 font-semibold text-gray-700"
                   >Secteur d'activité *</label
@@ -851,7 +878,8 @@ const handleSubmit = async () => {
     { key: 'promesse_de_valeur', label: 'Promesse de valeur' },
     { key: 'infos', label: 'Description entreprise / service' },
     { key: 'agent_name', label: "Nom de l'agent" },
-    { key: 'objectifs', label: 'Objectifs de Prospection' }
+    { key: 'objectifs', label: 'Objectifs de Prospection' },
+    { key: 'transfert_call_number', label: "Numéro de transfert d'appel" }
   ]
 
   const missing = requiredChecks

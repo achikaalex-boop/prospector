@@ -122,7 +122,21 @@ Le projet est configuré pour être déployé en un seul **Web Service** sur Ren
    - `VITE_RETELL_AGENT_ID`
 5. **Déployer** et noter l'URL générée (ex: `https://votre-app.onrender.com`)
 6. **Configurer le webhook Retell** avec l'URL : `https://votre-app.onrender.com/webhook`
+### Déploiement recommandé (Web + Worker sur Render)
 
+Pour les environnements de production, il est recommandé de déployer deux services distincts sur Render :
+
+- **Web (API)** : exécute `node webhook-server.mjs` (serveur HTTP)
+- **Worker (Background)** : exécute `node worker/queue.js` (pollLoop pour traiter `job_queue`)
+
+Un `render.yaml` d'exemple est inclus dans le dépôt (`render.yaml`) pour faciliter la création des deux services. Assurez-vous de configurer les secrets suivants côté serveur (Render secrets) :
+
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY` (NE PAS exposer au client)
+- `RETELL_API_KEY`
+- `PAYPAL_CLIENT_ID`, `PAYPAL_SECRET`
+
+> Important : Replacez toute variable `VITE_SUPABASE_SERVICE_ROLE_KEY` par `SUPABASE_SERVICE_ROLE_KEY` côté serveur afin que la clé de service ne soit jamais embarquée côté client.
 ## 📊 Structure de la Base de Données
 
 ### Table `campaigns`

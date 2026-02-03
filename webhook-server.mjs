@@ -1048,9 +1048,8 @@ app.post('/api/create-campaign', async (req, res) => {
       }
     }))
 
-    const planMaxConcurrency = plan && plan.max_concurrency ? Number(plan.max_concurrency) : 1
-    const requestedConcurrency = Math.max(1, Number(payload.reserved_concurrency || planMaxConcurrency || 1))
-    const reservedConcurrency = Math.min(planMaxConcurrency, requestedConcurrency)
+    // Force single-concurrency per batch: reserved_concurrency is 1 regardless of plan
+    const reservedConcurrency = 1
 
     const batchBody = {
       name: `Campagne ${campaignRow.company_name} - ${new Date().toISOString()}`,
@@ -1060,7 +1059,29 @@ app.post('/api/create-campaign', async (req, res) => {
       reserved_concurrency: reservedConcurrency
     }
 
+    // Enforce global and per-user running campaign caps before attempting immediate send.
+    // If caps are reached, enqueue into job_queue so the worker will process when a slot is free.
     try {
+      try {
+        const { data: runningAll } = await supabase.from('campaigns').select('id').eq('status', 'running')
+        if (Array.isArray(runningAll) && runningAll.length >= 19) {
+          await supabase.from('job_queue').insert([{ user_id: userId, plan_slug: plan ? plan.slug : null, status: 'pending', attempts: 0, payload: batchBody }])
+          return res.status(202).json({ ok: true, campaign: campaign, queued: true, reason: 'global_limit' })
+        }
+      } catch (e) {
+        // best-effort; ignore
+      }
+
+      try {
+        const { data: userRunning } = await supabase.from('campaigns').select('id').eq('status', 'running').eq('user_id', userId)
+        if (Array.isArray(userRunning) && userRunning.length >= 1) {
+          await supabase.from('job_queue').insert([{ user_id: userId, plan_slug: plan ? plan.slug : null, status: 'pending', attempts: 0, payload: batchBody }])
+          return res.status(202).json({ ok: true, campaign: campaign, queued: true, reason: 'user_limit' })
+        }
+      } catch (e) {
+        // best-effort; ignore
+      }
+
       const resp = await axios.post(process.env.RETELL_API_URL || 'https://api.retellai.com/create-batch-call', batchBody, { headers: { Authorization: `Bearer ${process.env.RETELL_API_KEY || process.env.VITE_RETELL_API_KEY}` }, timeout: 20000 })
       // mark campaign as running or store batch id
       try { await supabase.from('campaigns').update({ status: 'running' }).eq('id', campaign.id) } catch (e) {}
