@@ -112,6 +112,13 @@ const checkAuth = async () => {
   try {
     const { data: { session } } = await supabase.auth.getSession()
     isAuthenticated.value = !!session
+    if (!session) {
+      const currentPath = router.currentRoute.value.path || ''
+      const allowedWhenUnauth = ['/privacy-policy', '/terms-of-service']
+      if (!allowedWhenUnauth.includes(currentPath)) {
+        router.push('/register')
+      }
+    }
   } catch (error) {
     console.error('Erreur lors de la vérification de l\'authentification:', error)
     isAuthenticated.value = false
@@ -157,12 +164,12 @@ onMounted(() => {
     supabase.auth.onAuthStateChange((event, session) => {
       isAuthenticated.value = !!session
       fetchBalance()
-      // Do not force redirect to /login if visiting public pages or admin routes
+      // If user becomes unauthenticated, redirect to register except for privacy/terms pages
       const currentPath = router.currentRoute.value.path || ''
-      const publicPages = ['/login', '/register', '/privacy-policy', '/terms-of-service', '/pricing', '/techniques']
-      const isPublicPage = publicPages.includes(currentPath) || currentPath.startsWith('/admin')
-      if (!session && !isPublicPage) {
-        router.push('/login')
+      const allowedWhenUnauth = ['/privacy-policy', '/terms-of-service']
+      const isAllowed = allowedWhenUnauth.includes(currentPath)
+      if (!session && !isAllowed) {
+        router.push('/register')
       }
     })
   } catch (error) {
