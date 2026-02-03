@@ -37,46 +37,60 @@
       </div>
     </section>
 
-    <!-- Features + CTA -->
-    <section class="grid md:grid-cols-3 gap-6 mt-8">
-      <div class="col-span-2">
-        <h3 class="text-xl font-bold mb-3">Pourquoi choisir Pro ?</h3>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div class="p-4 border rounded shadow-sm">
-            <h4 class="font-semibold">Appels optimisés</h4>
-            <p class="text-sm text-gray-600 mt-1">Gestion intelligente des appels et files d'attente, priorisation réseau.</p>
-          </div>
-          <div class="p-4 border rounded shadow-sm">
-            <h4 class="font-semibold">Intégrations & API</h4>
-            <p class="text-sm text-gray-600 mt-1">Webhooks, API & intégrations CRM pour automatiser votre prospection.</p>
-          </div>
-          <div class="p-4 border rounded shadow-sm">
-            <h4 class="font-semibold">Analyse & rapports</h4>
-            <p class="text-sm text-gray-600 mt-1">Statistiques détaillées sur performances d'appels et conversions.</p>
-          </div>
-          <div class="p-4 border rounded shadow-sm">
-            <h4 class="font-semibold">Support prioritaire</h4>
-            <p class="text-sm text-gray-600 mt-1">Assistance réactive pour les équipes pro.</p>
+    <!-- Features + CTA (revamped) -->
+    <section class="mt-8">
+      <h3 class="text-xl font-bold mb-4">Pourquoi choisir Pro ?</h3>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="p-6 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow">
+          <div class="flex items-start gap-4">
+            <i class="pi pi-phone text-blue-600 text-2xl"></i>
+            <div>
+              <h4 class="font-semibold">Appels optimisés</h4>
+              <p class="text-sm text-gray-600 mt-1">Gestion intelligente des appels et files d'attente, priorisation réseau pour maximiser vos conversions.</p>
+            </div>
           </div>
         </div>
 
-        <div class="mt-6">
-          <h3 class="text-lg font-semibold mb-2">Nos engagements</h3>
-          <ul class="text-sm text-gray-700 space-y-1">
-            <li>✅ Sécurité & confidentialité des données</li>
-            <li>✅ Intégration avec vos outils (CRM, Zapier, API)</li>
-            <li>✅ Support dédié pour l'onboarding</li>
-          </ul>
+        <div class="p-6 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow">
+          <div class="flex items-start gap-4">
+            <i class="pi pi-plug text-blue-600 text-2xl"></i>
+            <div>
+              <h4 class="font-semibold">Intégrations & API</h4>
+              <p class="text-sm text-gray-600 mt-1">Webhooks, API & intégrations CRM pour automatiser votre prospection et synchroniser vos leads.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-6 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow">
+          <div class="flex items-start gap-4">
+            <i class="pi pi-chart-line text-blue-600 text-2xl"></i>
+            <div>
+              <h4 class="font-semibold">Analyse & rapports</h4>
+              <p class="text-sm text-gray-600 mt-1">Tableaux de bord et métriques pour suivre l'efficacité des campagnes et améliorer les scripts d'appel.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-6 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow">
+          <div class="flex items-start gap-4">
+            <i class="pi pi-headset text-blue-600 text-2xl"></i>
+            <div>
+              <h4 class="font-semibold">Support prioritaire</h4>
+              <p class="text-sm text-gray-600 mt-1">Assistance dédiée pour l'onboarding et support pro afin de maintenir votre activité opérationnelle.</p>
+            </div>
+          </div>
         </div>
       </div>
 
-      <aside class="p-4 border rounded shadow-sm">
-        <h4 class="font-semibold mb-2">Besoin d'aide ?</h4>
-        <p class="text-sm text-gray-600">Contactez notre équipe pour une démo personnalisée ou pour des besoins d'équipe.</p>
-        <div class="mt-4">
-          <button class="w-full py-2 px-3 rounded border" @click="$router.push('/contact')">Contactez-nous</button>
-        </div>
-      </aside>
+      <div class="mt-6 bg-gray-50 p-5 rounded-lg border">
+        <h4 class="font-semibold mb-3">Nos engagements</h4>
+        <ul class="text-sm text-gray-700 space-y-2">
+          <li class="flex items-start gap-2"><i class="pi pi-check text-green-600 mt-1"></i> <span>Sécurité & confidentialité des données</span></li>
+          <li class="flex items-start gap-2"><i class="pi pi-check text-green-600 mt-1"></i> <span>Intégration avec vos outils (CRM, Zapier, API)</span></li>
+          <li class="flex items-start gap-2"><i class="pi pi-check text-green-600 mt-1"></i> <span>Support dédié pour l'onboarding</span></li>
+        </ul>
+      </div>
     </section>
 
     <!-- FAQ -->
