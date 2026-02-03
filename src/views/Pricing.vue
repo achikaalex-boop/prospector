@@ -1,52 +1,93 @@
 <template>
-  <div class="p-6 max-w-4xl mx-auto">
-    <h1 class="text-3xl font-bold mb-4">Abonnements</h1>
-    <div class="mb-4 text-sm text-gray-600">Choisissez un abonnement adapté à votre usage. Les appels sont facturés à la minute en sus si applicable.</div>
+  <div class="p-6 max-w-6xl mx-auto">
+    <!-- Hero -->
+    <section class="text-center py-12">
+      <h1 class="text-4xl md:text-5xl font-extrabold mb-4">Un seul plan. Tout compris.</h1>
+      <p class="text-lg text-gray-600 max-w-2xl mx-auto mb-6">Accédez à toutes les fonctionnalités de la plateforme — campagnes puissantes, appels intelligents, intégrations & support prioritaire.</p>
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <div v-for="p in uiPlans" :key="p.slug" :class="['p-6 rounded-lg border-2 transition-all', p.slug === 'pro' ? 'bg-gradient-to-br from-blue-700 to-blue-900 border-blue-600 shadow-xl' : 'bg-white border-gray-200 hover:border-blue-300']">
-        <!-- Header -->
-        <div class="flex items-start justify-between gap-3">
-          <div class="flex-1">
-            <div class="flex items-center gap-2 mb-2">
-              <span v-if="p.slug === 'pro'" class="text-lg">🔴</span>
-              <h3 :class="['text-xl font-bold', p.slug === 'pro' ? 'text-white' : 'text-gray-900']">{{ p.name }}</h3>
+      <div class="flex justify-center">
+        <div class="bg-gradient-to-br from-blue-700 to-blue-900 text-white p-8 rounded-xl shadow-2xl w-full max-w-md">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <div class="flex items-center gap-2 mb-2">
+                <span class="inline-block bg-red-500 rounded-full w-3 h-3"></span>
+                <h2 class="text-xl font-bold">Pro</h2>
+              </div>
+              <div class="text-4xl font-extrabold mt-3">{{ displayMoney(monthlyPriceCents(proPlan)) }}<span class="text-sm font-medium">/mois</span></div>
+              <p class="mt-2 text-sm opacity-90">Accès complet à toutes les fonctionnalités</p>
             </div>
-            <div :class="['mt-2 text-2xl font-bold', p.slug === 'pro' ? 'text-white' : 'text-gray-900']">{{ displayMoney(monthlyPriceCents(p)) }}<span class="text-sm font-normal">/mois</span></div>
-          </div>
-          <div v-if="activePlan && (activePlan.plan_slug === p.slug || activePlan.slug === p.slug)" class="text-xs font-bold uppercase px-2 py-1 rounded" :class="p.slug === 'pro' ? 'bg-green-400 text-gray-900' : 'bg-green-500 text-white'">Actif</div>
-        </div>
-
-        <!-- Divider -->
-        <div :class="['my-4 h-px', p.slug === 'pro' ? 'bg-blue-400/30' : 'bg-gray-200']"></div>
-
-        <!-- Features -->
-        <div :class="['text-sm space-y-3', p.slug === 'pro' ? 'text-blue-50' : 'text-gray-700']">
-          <div>
-            <p class="font-semibold" :class="p.slug === 'pro' ? 'text-white' : 'text-gray-900'">Limites & Tarification</p>
-            <ul class="mt-2 space-y-1.5 text-sm">
-              <li><span class="font-semibold">Campagnes/mois :</span> <span class="font-bold">{{ p.monthly_campaign_limit || 0 }}</span></li>
-              <li><span class="font-semibold">Contacts/campagne :</span> <span class="font-bold">{{ p.max_contacts_per_campaign || 0 }}</span></li>
-              <li><span class="font-semibold">Appels simultanés :</span> <span class="font-bold">{{ p.max_concurrency || p.concurrency || '—' }}</span></li>
-              <li><span class="font-semibold">Coût/minute :</span> <span class="font-bold">{{ displayMoney(p.per_min_cents || 0) }} USD</span></li>
-            </ul>
+            <div class="text-right">
+              <div v-if="activePlan && (activePlan.plan_slug === proPlan?.slug || activePlan.slug === proPlan?.slug)" class="text-xs font-bold uppercase px-2 py-1 rounded bg-green-400 text-gray-900">Actif</div>
+            </div>
           </div>
 
-          <div v-if="p.description" :class="['mt-3 p-2 rounded text-xs', p.slug === 'pro' ? 'bg-blue-600/40 text-blue-100' : 'bg-gray-50 text-gray-600']">
-            <p>{{ p.description }}</p>
-          </div>
-        </div>
+          <ul class="mt-4 space-y-2 text-sm">
+            <li class="flex items-center gap-2"><i class="pi pi-check-circle"></i> <strong>Campagnes/mois :</strong> {{ proPlan?.monthly_campaign_limit || '—' }}</li>
+            <li class="flex items-center gap-2"><i class="pi pi-check-circle"></i> <strong>Contacts/campagne :</strong> {{ proPlan?.max_contacts_per_campaign || '—' }}</li>
+            <li class="flex items-center gap-2"><i class="pi pi-check-circle"></i> <strong>Appels simultanés :</strong> {{ proPlan?.max_concurrency || '—' }}</li>
+            <li class="flex items-center gap-2"><i class="pi pi-check-circle"></i> <strong>Support :</strong> Prioritaire</li>
+          </ul>
 
-        <!-- Button -->
-        <div class="mt-6">
-          <button @click="subscribe(p)" :disabled="isPlanActive(p) || isLoading" :class="['w-full py-2 px-4 rounded font-semibold transition-all', p.slug === 'pro' ? 'bg-white text-blue-700 hover:bg-gray-100' : 'bg-blue-600 text-white hover:bg-blue-700', isPlanActive(p) || isLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer']">
-            {{ isPlanActive(p) ? '✓ Abonné' : 'S\'abonner' }}
-          </button>
+          <div class="mt-6">
+            <button @click="subscribe(proPlan)" :disabled="isPlanActive(proPlan) || isLoading" class="w-full bg-white text-blue-700 py-2 rounded font-semibold hover:bg-gray-100">{{ isPlanActive(proPlan) ? '✓ Abonné' : 'S\'abonner' }}</button>
+          </div>
+
+          <div class="mt-3 text-xs text-white/80">Paiement sécurisé · Assistance incluse</div>
         </div>
       </div>
-    </div>
-  </div>
+    </section>
 
+    <!-- Features + CTA -->
+    <section class="grid md:grid-cols-3 gap-6 mt-8">
+      <div class="col-span-2">
+        <h3 class="text-xl font-bold mb-3">Pourquoi choisir Pro ?</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="p-4 border rounded shadow-sm">
+            <h4 class="font-semibold">Appels optimisés</h4>
+            <p class="text-sm text-gray-600 mt-1">Gestion intelligente des appels et files d'attente, priorisation réseau.</p>
+          </div>
+          <div class="p-4 border rounded shadow-sm">
+            <h4 class="font-semibold">Intégrations & API</h4>
+            <p class="text-sm text-gray-600 mt-1">Webhooks, API & intégrations CRM pour automatiser votre prospection.</p>
+          </div>
+          <div class="p-4 border rounded shadow-sm">
+            <h4 class="font-semibold">Analyse & rapports</h4>
+            <p class="text-sm text-gray-600 mt-1">Statistiques détaillées sur performances d'appels et conversions.</p>
+          </div>
+          <div class="p-4 border rounded shadow-sm">
+            <h4 class="font-semibold">Support prioritaire</h4>
+            <p class="text-sm text-gray-600 mt-1">Assistance réactive pour les équipes pro.</p>
+          </div>
+        </div>
+
+        <div class="mt-6">
+          <h3 class="text-lg font-semibold mb-2">Nos engagements</h3>
+          <ul class="text-sm text-gray-700 space-y-1">
+            <li>✅ Sécurité & confidentialité des données</li>
+            <li>✅ Intégration avec vos outils (CRM, Zapier, API)</li>
+            <li>✅ Support dédié pour l'onboarding</li>
+          </ul>
+        </div>
+      </div>
+
+      <aside class="p-4 border rounded shadow-sm">
+        <h4 class="font-semibold mb-2">Besoin d'aide ?</h4>
+        <p class="text-sm text-gray-600">Contactez notre équipe pour une démo personnalisée ou pour des besoins d'équipe.</p>
+        <div class="mt-4">
+          <button class="w-full py-2 px-3 rounded border" @click="$router.push('/contact')">Contactez-nous</button>
+        </div>
+      </aside>
+    </section>
+
+    <!-- FAQ -->
+    <section class="mt-12">
+      <h3 class="text-xl font-bold mb-3">Questions fréquentes</h3>
+      <div class="space-y-2 text-sm text-gray-700">
+        <div class="p-3 border rounded">Toutes les fonctionnalités sont incluses dans le plan Pro — pas de modules cachés.</div>
+        <div class="p-3 border rounded">Vous pouvez changer d'abonnement ou annuler via votre espace.</div>
+      </div>
+    </section>
+  </div>
 </template>
 
 <script>
@@ -83,6 +124,11 @@ export default {
   unmounted() {
     window.removeEventListener('balance:updated', this.fetchBalance)
     window.removeEventListener('plan:updated', this.fetchActivePlan)
+  },
+  computed: {
+    proPlan() {
+      return (this.uiPlans && this.uiPlans.find(p => p.slug === 'pro')) || (this.uiPlans && this.uiPlans[0]) || null
+    }
   },
   methods: {
     monthlyPriceCents(plan) {
