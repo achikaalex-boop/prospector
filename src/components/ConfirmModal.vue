@@ -1,5 +1,5 @@
 <template>
-  <div v-if="isOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+  <div v-if="isOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" @click.self="reject">
     <div class="bg-white rounded-lg shadow-2xl max-w-md w-full mx-4 animate-in fade-in zoom-in-95 duration-200">
       <!-- Header -->
       <div class="px-6 py-4 border-b border-gray-200">
@@ -49,7 +49,8 @@ export default {
       icon: '⚠️',
       variant: 'primary', // 'primary' ou 'danger'
       resolveCallback: null,
-      rejectCallback: null
+      rejectCallback: null,
+      timeoutId: null
     }
   },
   methods: {
@@ -62,19 +63,44 @@ export default {
       this.variant = options.variant || 'primary'
       this.isOpen = true
 
+      // Safety: auto-reject after 2 minutes to avoid stuck overlays
+      if (this.timeoutId) clearTimeout(this.timeoutId)
+      this.timeoutId = setTimeout(() => {
+        this.reject('timeout')
+      }, 2 * 60 * 1000)
+
       return new Promise((resolve, reject) => {
-        this.resolveCallback = resolve
-        this.rejectCallback = reject
+        this.resolveCallback = (val) => {
+          if (this.timeoutId) clearTimeout(this.timeoutId)
+          resolve(val)
+        }
+        this.rejectCallback = (val) => {
+          if (this.timeoutId) clearTimeout(this.timeoutId)
+          reject(val)
+        }
       })
     },
     accept() {
       this.isOpen = false
       if (this.resolveCallback) this.resolveCallback(true)
     },
-    reject() {
+    reject(reason) {
       this.isOpen = false
-      if (this.rejectCallback) this.rejectCallback(false)
+      if (this.rejectCallback) this.rejectCallback(reason || false)
+    },
+    onKeydown(e) {
+      if (!this.isOpen) return
+      if (e.key === 'Escape') {
+        this.reject('escape')
+      }
     }
+  },
+  mounted() {
+    window.addEventListener('keydown', this.onKeydown)
+  },
+  beforeUnmount() {
+    window.removeEventListener('keydown', this.onKeydown)
+    if (this.timeoutId) clearTimeout(this.timeoutId)
   }
 }
 </script>
