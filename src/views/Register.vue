@@ -24,6 +24,10 @@
           </Message>
 
           <form @submit.prevent="handleRegister" class="space-y-5">
+            <div v-if="cooldownSeconds > 0" class="mb-2 p-3 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">
+              ⚠️ Trop de tentatives. Veuillez réessayer dans <strong>{{ cooldownSeconds }}s</strong>.
+            </div>
+
             <div class="flex flex-col">
               <label class="mb-2 font-semibold text-gray-700">Nom complet</label>
               <InputText
@@ -31,7 +35,7 @@
                 placeholder="Jean Dupont"
                 class="w-full"
                 required
-                :disabled="loading"
+                :disabled="loading || cooldownSeconds > 0"
               />
             </div>
 
@@ -122,7 +126,7 @@
               icon="pi pi-user-plus"
               class="w-full"
               :loading="loading"
-              :disabled="loading || !termsAccepted || !privacyAccepted"
+              :disabled="loading || !termsAccepted || !privacyAccepted || cooldownSeconds > 0"
             />
           </form>
 
@@ -139,7 +143,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '../lib/supabase'
 import Card from 'primevue/card'
@@ -157,8 +161,27 @@ const privacyAccepted = ref(false)
 const error = ref('')
 const success = ref('')
 const loading = ref(false)
+// cooldown to avoid repeated sign-up attempts after rate limiting errors
+const cooldownSeconds = ref(0)
+let cooldownIntervalId = null
+
+const startCooldown = (secs) => {
+  if (cooldownIntervalId) clearInterval(cooldownIntervalId)
+  cooldownSeconds.value = secs
+  cooldownIntervalId = setInterval(() => {
+    cooldownSeconds.value -= 1
+    if (cooldownSeconds.value <= 0) {
+      clearInterval(cooldownIntervalId)
+      cooldownIntervalId = null
+      cooldownSeconds.value = 0
+    }
+  }, 1000)
+}
 
 const handleRegister = async () => {
+  // Prevent submit when a cooldown is active
+  if (cooldownSeconds.value > 0) return
+
   error.value = ''
   success.value = ''
   loading.value = true
@@ -180,11 +203,43 @@ const handleRegister = async () => {
     success.value = 'Compte créé. Veuillez vérifier votre boîte mail et cliquer sur le lien de confirmation pour activer votre compte. Un jour d\'essai gratuit sera activé après confirmation de votre e-mail.'
     // do not redirect automatically — user must confirm email first
   } catch (err) {
-    error.value = err.message || 'Erreur lors de l\'inscription'
+    // Log details for debugging (network status, server message)
+    console.error('Register error', err)
+
+    // Detect rate-limiting
+    const status = err?.status || err?.response?.status || (typeof err?.message === 'string' && err.message.includes('Too Many Requests') ? 429 : null)
+    if (status === 429) {
+      error.value = 'Trop de requêtes vers le serveur d\'authentification. Réessayez dans une minute.'
+      // enforce a 60s cooldown to prevent repeated attempts
+      startCooldown(60)
+
+      // Quick client-side reporting to server logs for diagnostics
+      try {
+        fetch(`${window.location.origin}/client-log`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ts: new Date().toISOString(),
+            message: 'signup_rate_limited',
+            meta: { email: email.value, path: router.currentRoute.value.path || '', ua: navigator.userAgent }
+          }),
+          keepalive: true
+        }).catch(() => {})
+      } catch (e) {}
+
+    } else {
+      error.value = err.message || 'Erreur lors de l\'inscription'
+      // small cooldown to prevent accidental double clicks
+      startCooldown(5)
+    }
   } finally {
     loading.value = false
   }
 }
+
+onUnmounted(() => {
+  if (cooldownIntervalId) clearInterval(cooldownIntervalId)
+})
 </script>
 
 <style scoped>
