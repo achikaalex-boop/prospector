@@ -19,6 +19,10 @@
             {{ success }}
           </Message>
 
+          <Message severity="info" :closable="false" class="mb-4">
+            🎁 <strong>1 jour d'essai offert</strong> après l'inscription — profitez de toutes les fonctionnalités pendant 24 heures.
+          </Message>
+
           <form @submit.prevent="handleRegister" class="space-y-5">
             <div class="flex flex-col">
               <label class="mb-2 font-semibold text-gray-700">Nom complet</label>
@@ -173,7 +177,7 @@ const handleRegister = async () => {
     if (authError) throw authError
 
     // Inform the user to confirm their email before allowing full access
-    success.value = 'Compte créé. Veuillez vérifier votre boîte mail et cliquer sur le lien de confirmation pour activer votre compte.'
+    success.value = 'Compte créé. Veuillez vérifier votre boîte mail et cliquer sur le lien de confirmation pour activer votre compte. Un jour d\'essai gratuit sera activé après confirmation de votre e-mail.'
     // do not redirect automatically — user must confirm email first
   } catch (err) {
     error.value = err.message || 'Erreur lors de l\'inscription'
