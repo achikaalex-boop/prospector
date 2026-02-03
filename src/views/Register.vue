@@ -201,7 +201,12 @@ const handleRegister = async () => {
 
     // Inform the user to confirm their email before allowing full access
     success.value = 'Compte créé. Veuillez vérifier votre boîte mail et cliquer sur le lien de confirmation pour activer votre compte. Un jour d\'essai gratuit sera activé après confirmation de votre e-mail.'
-    // do not redirect automatically — user must confirm email first
+
+    // Clear sensitive fields and redirect to confirmation page with email in query
+    email.value = ''
+    password.value = ''
+    fullName.value = ''
+    router.push({ name: 'ConfirmEmail', query: { email: (data?.user?.email) || '' } })
   } catch (err) {
     // Log details for debugging (network status, server message)
     console.error('Register error', err)

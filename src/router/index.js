@@ -25,6 +25,11 @@ const routes = [
     component: () => import(/* webpackChunkName: "auth" */ '../views/Register.vue')
   },
   {
+    path: '/confirm-email',
+    name: 'ConfirmEmail',
+    component: () => import(/* webpackChunkName: "auth" */ '../views/ConfirmEmail.vue')
+  },
+  {
     path: '/techniques',
     name: 'Techniques',
     component: () => import(/* webpackChunkName: "pages" */ '../views/Techniques.vue')
