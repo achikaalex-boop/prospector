@@ -295,37 +295,7 @@
                 />
               </div>
 
-              <div>
-                <label class="block mb-2 font-semibold text-gray-700"
-                  >Numéro d'envoi</label
-                >
-                <Dropdown
-                  v-model="formData.from_number"
-                  :options="fromNumberOptions"
-                  optionLabel="label"
-                  optionValue="value"
-                  placeholder="Sélectionnez un numéro d'envoi"
-                  class="w-full"
-                />
-                <small class="text-gray-500 text-sm mt-1 block"
-                  >Sélectionnez le numéro utilisé pour émettre les appels.</small
-                >
-              </div>
-
-              <div>
-                <label class="block mb-2 font-semibold text-gray-700"
-                  ><i class="pi pi-asterisk text-red-500 text-xs mr-1"></i>Numéro de transfert d'appel *</label
-                >
-                <InputText
-                  v-model="formData.transfert_call_number"
-                  placeholder="Ex: +33612345678"
-                  class="w-full"
-                  required
-                />
-                <small class="text-gray-500 text-sm mt-1 block">
-                  Le numéro vers lequel transférer l'appel si le lead demande à parler à un humain. L'agent recevra un résumé bref de la discussion pour faciliter la prise de l'appel.
-                </small>
-              </div>
+              <!-- Removed duplicate: send/transfer number fields already present in Informations Entreprise -->
             </div>
           </template>
         </Card>
