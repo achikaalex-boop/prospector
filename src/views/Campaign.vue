@@ -373,10 +373,12 @@
                     Ajoutez le nom complet et le téléphone. Le préfixe "+" sera ajouté automatiquement si absent.
                   </small>
 
-                  <div v-for="(mc, idx) in manualContacts" :key="idx" class="flex gap-2 items-center mb-2">
-                    <InputText v-model="mc.nom" placeholder="Nom complet" class="flex-1" />
-                    <InputText v-model="mc.telephone" placeholder="+33612345678" class="w-56" @blur="normalizeManualPhone(idx)" />
-                    <Button icon="pi pi-trash" class="p-button-text p-button-danger" @click="removeManualContact(idx)" />
+                  <div v-for="(mc, idx) in manualContacts" :key="idx" class="flex flex-col md:flex-row gap-2 items-start md:items-center mb-2">
+                    <InputText v-model="mc.nom" placeholder="Nom complet" class="w-full md:flex-1" />
+                    <InputText v-model="mc.telephone" placeholder="+33612345678" class="w-full md:w-56" @blur="normalizeManualPhone(idx)" />
+                    <div class="self-end md:self-center">
+                      <Button icon="pi pi-trash" class="p-button-text p-button-danger" @click="removeManualContact(idx)" />
+                    </div>
                   </div>
 
                   <div class="flex items-center gap-2">
